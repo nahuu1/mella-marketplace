@@ -1,5 +1,16 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  updateProfile as updateFirebaseProfile,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { toast } from "sonner";
 
 // Define the User type
 interface User {
@@ -40,38 +51,69 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock Firebase authentication for now
+  // Set up auth state listener
   useEffect(() => {
-    // This will be replaced with Firebase auth state listener
-    const checkAuthState = async () => {
-      // Simulate checking authentication state
-      const storedUser = localStorage.getItem('mellaUser');
-      if (storedUser) {
-        setCurrentUser(JSON.parse(storedUser));
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Get additional user data from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setCurrentUser({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              phoneNumber: userData.phoneNumber || user.phoneNumber,
+            });
+          } else {
+            // If no additional data exists, just use Firebase auth data
+            setCurrentUser({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              phoneNumber: user.phoneNumber,
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          // Fallback to basic user info if Firestore fetch fails
+          setCurrentUser({
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            phoneNumber: user.phoneNumber,
+          });
+        }
+      } else {
+        setCurrentUser(null);
       }
+      
       setIsLoading(false);
-    };
+    });
 
-    checkAuthState();
+    return unsubscribe;
   }, []);
 
   // Login function
   const login = async (email: string, password: string) => {
     try {
-      // This will be replaced with Firebase authentication
-      // Mock user for now
-      const user = {
-        uid: '123456',
-        email: email,
-        displayName: 'Abebe Kebede',
-        photoURL: null,
-        phoneNumber: '+251 91 234 5678',
-      };
-      
-      setCurrentUser(user);
-      localStorage.setItem('mellaUser', JSON.stringify(user));
-    } catch (error) {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast.success("Logged in successfully!");
+    } catch (error: any) {
       console.error('Login error:', error);
+      let errorMessage = "Failed to login. Please check your credentials.";
+      
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        errorMessage = "Invalid email or password.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Too many failed login attempts. Please try again later.";
+      }
+      
+      toast.error(errorMessage);
       throw error;
     }
   };
@@ -79,20 +121,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Signup function
   const signup = async (email: string, password: string, name: string) => {
     try {
-      // This will be replaced with Firebase authentication
-      // Mock user for now
-      const user = {
-        uid: '123456',
-        email: email,
+      // Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Update profile with display name
+      await updateFirebaseProfile(user, {
+        displayName: name
+      });
+      
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        email: user.email,
         displayName: name,
         photoURL: null,
         phoneNumber: null,
-      };
+        createdAt: new Date().toISOString(),
+      });
       
-      setCurrentUser(user);
-      localStorage.setItem('mellaUser', JSON.stringify(user));
-    } catch (error) {
+      toast.success("Account created successfully!");
+    } catch (error: any) {
       console.error('Signup error:', error);
+      let errorMessage = "Failed to create account.";
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Email is already in use.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "Password is too weak.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Invalid email address.";
+      }
+      
+      toast.error(errorMessage);
       throw error;
     }
   };
@@ -100,11 +161,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Logout function
   const logout = async () => {
     try {
-      // This will be replaced with Firebase authentication
-      setCurrentUser(null);
-      localStorage.removeItem('mellaUser');
+      await signOut(auth);
+      toast.success("Logged out successfully!");
     } catch (error) {
       console.error('Logout error:', error);
+      toast.error("Failed to log out.");
       throw error;
     }
   };
@@ -112,14 +173,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Update profile function
   const updateProfile = async (data: Partial<User>) => {
     try {
-      // This will be replaced with Firebase profile update
-      if (currentUser) {
-        const updatedUser = { ...currentUser, ...data };
-        setCurrentUser(updatedUser);
-        localStorage.setItem('mellaUser', JSON.stringify(updatedUser));
+      if (!currentUser) throw new Error("No user is logged in");
+      
+      // Update Firebase Auth profile if displayName or photoURL is provided
+      if (data.displayName || data.photoURL) {
+        const updateData: { displayName?: string; photoURL?: string } = {};
+        if (data.displayName) updateData.displayName = data.displayName;
+        if (data.photoURL) updateData.photoURL = data.photoURL;
+        
+        await updateFirebaseProfile(auth.currentUser as FirebaseUser, updateData);
       }
+      
+      // Update additional user data in Firestore
+      const userRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userRef, {
+        ...data,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      
+      // Update local user state
+      setCurrentUser(prevUser => prevUser ? { ...prevUser, ...data } : null);
+      
+      toast.success("Profile updated successfully!");
     } catch (error) {
       console.error('Profile update error:', error);
+      toast.error("Failed to update profile.");
       throw error;
     }
   };

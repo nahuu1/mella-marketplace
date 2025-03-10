@@ -8,13 +8,15 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Mail, Lock, User, AlertCircle } from "lucide-react";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { toast } from "sonner";
 
-// This will be connected to Firebase once credentials are provided
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
 
   // Login form state
@@ -32,23 +34,11 @@ const Auth = () => {
     setIsLoading(true);
     
     try {
-      // Firebase login will be implemented here
-      console.log("Login with:", loginEmail, loginPassword);
-      
-      // Temporary mock login for UI testing
-      setTimeout(() => {
-        toast({
-          title: "Success!",
-          description: "You have been logged in successfully.",
-        });
-        navigate("/");
-      }, 1500);
+      await login(loginEmail, loginPassword);
+      navigate("/");
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Login failed",
-        description: "Invalid email or password. Please try again.",
-      });
+      // Error is handled in the login function
+      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -58,34 +48,34 @@ const Auth = () => {
     e.preventDefault();
     
     if (password !== confirmPassword) {
-      toast({
-        variant: "destructive",
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
-      });
+      toast.error("Passwords don't match");
       return;
     }
     
     setIsLoading(true);
     
     try {
-      // Firebase signup will be implemented here
-      console.log("Signup with:", name, email, password);
-      
-      // Temporary mock signup for UI testing
-      setTimeout(() => {
-        toast({
-          title: "Account created!",
-          description: "Your account has been created successfully.",
-        });
-        navigate("/");
-      }, 1500);
+      await signup(email, password, name);
+      navigate("/");
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Signup failed",
-        description: "There was an error creating your account. Please try again.",
-      });
+      // Error is handled in the signup function
+      console.error("Signup error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    const provider = new GoogleAuthProvider();
+    
+    try {
+      await signInWithPopup(auth, provider);
+      toast.success("Logged in successfully with Google!");
+      navigate("/");
+    } catch (error: any) {
+      console.error("Google sign-in error:", error);
+      toast.error(error.message || "Failed to sign in with Google");
     } finally {
       setIsLoading(false);
     }
@@ -242,7 +232,13 @@ const Auth = () => {
                 <div className="flex-1 h-px bg-border" />
               </div>
               
-              <Button variant="outline" type="button" className="w-full">
+              <Button 
+                variant="outline" 
+                type="button" 
+                className="w-full"
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+              >
                 Continue with Google
               </Button>
             </CardFooter>
