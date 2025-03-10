@@ -1,13 +1,16 @@
 
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Search, Menu, X, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function SiteHeader() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -28,6 +31,15 @@ export function SiteHeader() {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "auto";
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
     }
   };
 
@@ -75,12 +87,20 @@ export function SiteHeader() {
             <Search className="h-4 w-4 mr-2" />
             Search
           </Button>
-          <Button variant="ghost" size="sm" className="rounded-full">
-            <User className="h-4 w-4" />
-          </Button>
-          <Button size="sm" className="rounded-full px-4">
-            Sign in
-          </Button>
+          
+          {currentUser ? (
+            <Link to="/profile">
+              <Button variant="ghost" size="sm" className="rounded-full">
+                <User className="h-4 w-4" />
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/auth">
+              <Button size="sm" className="rounded-full px-4">
+                Sign in
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -147,9 +167,20 @@ export function SiteHeader() {
                 <Search className="h-4 w-4 mr-2" />
                 Search
               </Button>
-              <Button className="rounded-full w-48">
-                Sign in
-              </Button>
+              
+              {currentUser ? (
+                <Link to="/profile" className="w-48" onClick={toggleMenu}>
+                  <Button className="rounded-full w-full">
+                    Profile
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/auth" className="w-48" onClick={toggleMenu}>
+                  <Button className="rounded-full w-full">
+                    Sign in
+                  </Button>
+                </Link>
+              )}
             </div>
           </nav>
         </div>
