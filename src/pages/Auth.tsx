@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "@/components/site/header";
@@ -16,20 +15,17 @@ const Auth = () => {
   const navigate = useNavigate();
   const { currentUser, login, signup, isLoading } = useAuth();
   
-  // Redirect if already logged in
   useEffect(() => {
     if (currentUser) {
       navigate("/");
     }
   }, [currentUser, navigate]);
 
-  // Login form state
   const [loginData, setLoginData] = useState({
     email: "",
     password: "",
   });
   
-  // Signup form state
   const [signupData, setSignupData] = useState({
     name: "",
     email: "",
@@ -46,6 +42,7 @@ const Auth = () => {
     
     try {
       await login(loginData.email, loginData.password);
+      toast.success("Welcome back!");
       navigate("/");
     } catch (error) {
       console.error("Login error:", error);

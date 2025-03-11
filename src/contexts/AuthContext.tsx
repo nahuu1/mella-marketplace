@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AuthError, Session, User } from '@supabase/supabase-js';
@@ -138,22 +137,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Signup function
+  // Signup function - Modified to skip email confirmation
   const signup = async (email: string, password: string, name: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             name: name,
           },
+          emailRedirectTo: window.location.origin,
         },
       });
 
       if (error) throw error;
       
-      toast.success("Account created successfully! Check your email for confirmation.");
+      // If we have a user, attempt to sign them in immediately
+      if (data.user) {
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (loginError) throw loginError;
+        
+        toast.success("Account created and logged in successfully!");
+      } else {
+        toast.success("Account created successfully!");
+      }
     } catch (error: any) {
       console.error('Signup error:', error);
       let errorMessage = "Failed to create account.";

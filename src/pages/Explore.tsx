@@ -8,7 +8,7 @@ import { MapPin, Search, PlusCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Explore = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, profile } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -23,7 +23,7 @@ const Explore = () => {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <h1 className="text-2xl font-bold mb-2">
-                        Welcome back, {currentUser.displayName || 'User'}!
+                        Welcome back, {profile?.full_name || currentUser.email.split('@')[0]}!
                       </h1>
                       <p className="text-muted-foreground">
                         Explore listings near you or create a new listing today.
