@@ -37,7 +37,6 @@ const Profile = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [showAddListingDialog, setShowAddListingDialog] = useState(false);
   const [fetchingListings, setFetchingListings] = useState(false);
-  const [profileLoaded, setProfileLoaded] = useState(false);
   
   // Form state for profile
   const [formData, setFormData] = useState({
@@ -63,6 +62,7 @@ const Profile = () => {
   
   // Redirect if not logged in
   useEffect(() => {
+    console.log("Auth state:", { isLoading, currentUser: !!currentUser });
     if (!isLoading && !currentUser) {
       navigate("/auth");
     }
@@ -70,6 +70,7 @@ const Profile = () => {
   
   // Update form data when profile changes
   useEffect(() => {
+    console.log("Profile updated:", profile);
     if (profile) {
       setFormData({
         full_name: profile.full_name || "",
@@ -77,7 +78,6 @@ const Profile = () => {
         location: profile.location || "",
         email: profile.email || "",
       });
-      setProfileLoaded(true);
     }
   }, [profile]);
   
@@ -88,13 +88,18 @@ const Profile = () => {
       
       setFetchingListings(true);
       try {
+        console.log("Fetching listings for user:", currentUser.id);
         const { data, error } = await supabase
           .from('listings')
           .select('*')
           .eq('user_id', currentUser.id);
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching listings:", error);
+          throw error;
+        }
         
+        console.log("Listings fetched:", data);
         setMyListings(data || []);
       } catch (error) {
         console.error("Error fetching listings:", error);
@@ -117,7 +122,8 @@ const Profile = () => {
             table: 'listings',
             filter: `user_id=eq.${currentUser.id}`,
           }, 
-          () => {
+          (payload) => {
+            console.log("Real-time update received:", payload);
             fetchListings();
           }
         )
@@ -283,377 +289,365 @@ const Profile = () => {
     }
   };
   
-  // Show loading state if user data is still loading
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <SiteHeader />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-          <p className="ml-2">Loading profile...</p>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  // Show not logged in message if no user but loading is complete
-  if (!currentUser && !isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <SiteHeader />
-        <div className="flex-1 flex flex-col items-center justify-center p-4">
-          <h1 className="text-2xl font-bold mb-4">Please sign in to view your profile</h1>
-          <Button onClick={() => navigate("/auth")}>Sign In</Button>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
+  console.log("Render profile page:", { isLoading, currentUser: !!currentUser, profile: !!profile });
+  
+  // Fix: Using a simpler rendering approach to avoid infinite loading
+  // Show content even if profile is null but user is logged in
   return (
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
       <main className="flex-1 px-4 py-24">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            {/* Profile Card */}
-            <Card className="w-full md:w-80 flex-shrink-0">
-              <CardHeader className="flex flex-col items-center pb-0 pt-6">
-                <div className="relative mb-4">
-                  <Avatar className="w-24 h-24 border-4 border-background">
-                    <AvatarImage src={profile?.avatar_url || ""} />
-                    <AvatarFallback>{profile?.full_name?.substring(0, 2).toUpperCase() || "U"}</AvatarFallback>
-                  </Avatar>
-                  <label className="absolute bottom-0 right-0 cursor-pointer">
-                    <div className="bg-primary text-primary-foreground h-8 w-8 rounded-full flex items-center justify-center">
-                      {isUploading ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <Camera className="h-4 w-4" />
-                      )}
-                      <input 
-                        type="file" 
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        disabled={isUploading}
-                      />
-                    </div>
-                  </label>
-                </div>
+        {isLoading ? (
+          <div className="max-w-4xl mx-auto flex items-center justify-center py-12">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mr-3"></div>
+            <p>Loading profile...</p>
+          </div>
+        ) : !currentUser ? (
+          <div className="max-w-4xl mx-auto flex flex-col items-center justify-center py-12">
+            <h1 className="text-2xl font-bold mb-4">Please sign in to view your profile</h1>
+            <Button onClick={() => navigate("/auth")}>Sign In</Button>
+          </div>
+        ) : (
+          <div className="max-w-4xl mx-auto space-y-8">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              {/* Profile Card */}
+              <Card className="w-full md:w-80 flex-shrink-0">
+                <CardHeader className="flex flex-col items-center pb-0 pt-6">
+                  <div className="relative mb-4">
+                    <Avatar className="w-24 h-24 border-4 border-background">
+                      <AvatarImage src={profile?.avatar_url || ""} />
+                      <AvatarFallback>{profile?.full_name?.substring(0, 2).toUpperCase() || currentUser?.email?.substring(0, 2).toUpperCase() || "U"}</AvatarFallback>
+                    </Avatar>
+                    <label className="absolute bottom-0 right-0 cursor-pointer">
+                      <div className="bg-primary text-primary-foreground h-8 w-8 rounded-full flex items-center justify-center">
+                        {isUploading ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={isUploading}
+                        />
+                      </div>
+                    </label>
+                  </div>
+                  
+                  <h2 className="text-xl font-bold mb-1">{profile?.full_name || currentUser?.email?.split('@')[0] || "User"}</h2>
+                  <div className="flex items-center gap-1 text-muted-foreground text-sm mb-1">
+                    <MapPin className="h-3 w-3" />
+                    <span>{profile?.location || "Location not set"}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground text-sm mb-1">
+                    <Phone className="h-3 w-3" />
+                    <span>{profile?.phone || "Phone not set"}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground text-sm">
+                    <Mail className="h-3 w-3" />
+                    <span>{profile?.email || currentUser?.email || "Email not set"}</span>
+                  </div>
+                </CardHeader>
                 
-                <h2 className="text-xl font-bold mb-1">{profile?.full_name || "User"}</h2>
-                <div className="flex items-center gap-1 text-muted-foreground text-sm mb-1">
-                  <MapPin className="h-3 w-3" />
-                  <span>{profile?.location || "Location not set"}</span>
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground text-sm mb-1">
-                  <Phone className="h-3 w-3" />
-                  <span>{profile?.phone || "Phone not set"}</span>
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                  <Mail className="h-3 w-3" />
-                  <span>{profile?.email || currentUser?.email || "Email not set"}</span>
-                </div>
-              </CardHeader>
+                <CardContent className="pt-6">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mb-2"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </Button>
+                </CardContent>
+              </Card>
               
-              <CardContent className="pt-6">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full mb-2"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </CardContent>
-            </Card>
-            
-            {/* Tabs Section */}
-            <div className="flex-1">
-              <Tabs defaultValue="listings" className="w-full">
-                <TabsList className="grid grid-cols-2 mb-8">
-                  <TabsTrigger value="listings">My Listings</TabsTrigger>
-                  <TabsTrigger value="settings">Account Settings</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="listings">
-                  <Card>
-                    <CardContent className="p-6">
-                      {fetchingListings ? (
-                        <div className="text-center py-12">
-                          <div className="flex justify-center mb-4">
-                            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+              {/* Tabs Section */}
+              <div className="flex-1">
+                <Tabs defaultValue="listings" className="w-full">
+                  <TabsList className="grid grid-cols-2 mb-8">
+                    <TabsTrigger value="listings">My Listings</TabsTrigger>
+                    <TabsTrigger value="settings">Account Settings</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="listings">
+                    <Card>
+                      <CardContent className="p-6">
+                        {fetchingListings ? (
+                          <div className="text-center py-12">
+                            <div className="flex justify-center mb-4">
+                              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+                            </div>
+                            <p>Loading your listings...</p>
                           </div>
-                          <p>Loading your listings...</p>
-                        </div>
-                      ) : myListings.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {myListings.map((listing) => (
-                            <Card key={listing.id} className="overflow-hidden">
-                              <div className="aspect-video relative bg-muted">
-                                {listing.images && listing.images.length > 0 ? (
-                                  <img 
-                                    src={listing.images[0]} 
-                                    alt={listing.title}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                    No image
-                                  </div>
-                                )}
-                                <div className="absolute top-2 right-2 flex gap-2">
-                                  <Button size="icon" variant="destructive" onClick={() => handleDeleteListing(listing.id)}>
-                                    <Trash className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                              <CardContent className="p-4">
-                                <h3 className="font-semibold text-lg truncate">{listing.title}</h3>
-                                <div className="flex justify-between items-center mt-2">
-                                  <div className="text-sm text-muted-foreground capitalize">{listing.category}</div>
-                                  {listing.price ? (
-                                    <div className="font-medium">
-                                      ${listing.price}
-                                      {listing.price_period && <span className="text-sm text-muted-foreground">/{listing.price_period}</span>}
-                                    </div>
+                        ) : myListings.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {myListings.map((listing) => (
+                              <Card key={listing.id} className="overflow-hidden">
+                                <div className="aspect-video relative bg-muted">
+                                  {listing.images && listing.images.length > 0 ? (
+                                    <img 
+                                      src={listing.images[0]} 
+                                      alt={listing.title}
+                                      className="w-full h-full object-cover"
+                                    />
                                   ) : (
-                                    <div className="text-sm text-muted-foreground">Price not set</div>
+                                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                      No image
+                                    </div>
                                   )}
+                                  <div className="absolute top-2 right-2 flex gap-2">
+                                    <Button size="icon" variant="destructive" onClick={() => handleDeleteListing(listing.id)}>
+                                      <Trash className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
-                                {listing.location && (
-                                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-2">
-                                    <MapPin className="h-3 w-3" />
-                                    <span>{listing.location}</span>
+                                <CardContent className="p-4">
+                                  <h3 className="font-semibold text-lg truncate">{listing.title}</h3>
+                                  <div className="flex justify-between items-center mt-2">
+                                    <div className="text-sm text-muted-foreground capitalize">{listing.category}</div>
+                                    {listing.price ? (
+                                      <div className="font-medium">
+                                        ${listing.price}
+                                        {listing.price_period && <span className="text-sm text-muted-foreground">/{listing.price_period}</span>}
+                                      </div>
+                                    ) : (
+                                      <div className="text-sm text-muted-foreground">Price not set</div>
+                                    )}
                                   </div>
-                                )}
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-12">
-                          <h3 className="text-lg font-medium mb-2">No listings yet</h3>
-                          <p className="text-muted-foreground mb-6">
-                            You haven't posted any listings yet. Create your first listing now!
-                          </p>
-                          <div className="flex flex-wrap gap-3 justify-center">
-                            <Dialog open={showAddListingDialog} onOpenChange={setShowAddListingDialog}>
-                              <DialogTrigger asChild>
-                                <Button>
-                                  <Plus className="h-4 w-4 mr-2" />
-                                  Add Listing
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="sm:max-w-[500px]">
-                                <DialogHeader>
-                                  <DialogTitle>Create New Listing</DialogTitle>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="category">Category</Label>
-                                    <Select
-                                      value={newListing.category}
-                                      onValueChange={(value) => setNewListing({ ...newListing, category: value })}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select category" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="house">House</SelectItem>
-                                        <SelectItem value="product">Product</SelectItem>
-                                        <SelectItem value="service">Service</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="title">Title</Label>
-                                    <Input
-                                      id="title"
-                                      value={newListing.title}
-                                      onChange={(e) => setNewListing({ ...newListing, title: e.target.value })}
-                                      placeholder="Enter listing title"
-                                    />
-                                  </div>
-                                  
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="description">Description</Label>
-                                    <Textarea
-                                      id="description"
-                                      value={newListing.description || ""}
-                                      onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
-                                      placeholder="Describe your listing"
-                                      rows={3}
-                                    />
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-2 gap-4">
+                                  {listing.location && (
+                                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-2">
+                                      <MapPin className="h-3 w-3" />
+                                      <span>{listing.location}</span>
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-12">
+                            <h3 className="text-lg font-medium mb-2">No listings yet</h3>
+                            <p className="text-muted-foreground mb-6">
+                              You haven't posted any listings yet. Create your first listing now!
+                            </p>
+                            <div className="flex flex-wrap gap-3 justify-center">
+                              <Dialog open={showAddListingDialog} onOpenChange={setShowAddListingDialog}>
+                                <DialogTrigger asChild>
+                                  <Button>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Listing
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[500px]">
+                                  <DialogHeader>
+                                    <DialogTitle>Create New Listing</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="grid gap-4 py-4">
                                     <div className="grid gap-2">
-                                      <Label htmlFor="price">Price</Label>
+                                      <Label htmlFor="category">Category</Label>
+                                      <Select
+                                        value={newListing.category}
+                                        onValueChange={(value) => setNewListing({ ...newListing, category: value })}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="house">House</SelectItem>
+                                          <SelectItem value="product">Product</SelectItem>
+                                          <SelectItem value="service">Service</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="title">Title</Label>
                                       <Input
-                                        id="price"
-                                        type="number"
-                                        value={newListing.price || ""}
-                                        onChange={(e) => setNewListing({ 
-                                          ...newListing, 
-                                          price: e.target.value ? parseFloat(e.target.value) : 0 
-                                        })}
-                                        placeholder="0.00"
+                                        id="title"
+                                        value={newListing.title}
+                                        onChange={(e) => setNewListing({ ...newListing, title: e.target.value })}
+                                        placeholder="Enter listing title"
                                       />
                                     </div>
                                     
                                     <div className="grid gap-2">
-                                      <Label htmlFor="price_period">Period</Label>
-                                      <Select
-                                        value={newListing.price_period || "month"}
-                                        onValueChange={(value) => setNewListing({ ...newListing, price_period: value })}
-                                      >
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select period" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="month">Monthly</SelectItem>
-                                          <SelectItem value="day">Daily</SelectItem>
-                                          <SelectItem value="hour">Hourly</SelectItem>
-                                          <SelectItem value="one-time">One-time</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="location">Location</Label>
-                                    <Input
-                                      id="location"
-                                      value={newListing.location || ""}
-                                      onChange={(e) => setNewListing({ ...newListing, location: e.target.value })}
-                                      placeholder="Enter location"
-                                    />
-                                  </div>
-                                  
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="images">Images</Label>
-                                    <div className="flex items-center gap-2">
-                                      <Label
-                                        htmlFor="images"
-                                        className="cursor-pointer flex h-10 w-full items-center justify-center rounded-md border border-input bg-background hover:bg-accent"
-                                      >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        {listingImages.length === 0 ? "Add Images" : `${listingImages.length} image(s) selected`}
-                                      </Label>
-                                      <Input
-                                        id="images"
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        className="hidden"
-                                        onChange={handleListingImageUpload}
+                                      <Label htmlFor="description">Description</Label>
+                                      <Textarea
+                                        id="description"
+                                        value={newListing.description || ""}
+                                        onChange={(e) => setNewListing({ ...newListing, description: e.target.value })}
+                                        placeholder="Describe your listing"
+                                        rows={3}
                                       />
                                     </div>
-                                    {listingImages.length > 0 && (
-                                      <div className="flex flex-wrap gap-2 mt-2">
-                                        {listingImages.map((file, index) => (
-                                          <div 
-                                            key={index}
-                                            className="relative h-16 w-16 rounded-md overflow-hidden bg-muted"
-                                          >
-                                            <img
-                                              src={URL.createObjectURL(file)}
-                                              alt={`Preview ${index}`}
-                                              className="h-full w-full object-cover"
-                                            />
-                                            <button
-                                              type="button"
-                                              className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-1 rounded-bl-md"
-                                              onClick={() => setListingImages(prev => prev.filter((_, i) => i !== index))}
-                                            >
-                                              <Trash className="h-3 w-3" />
-                                            </button>
-                                          </div>
-                                        ))}
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="grid gap-2">
+                                        <Label htmlFor="price">Price</Label>
+                                        <Input
+                                          id="price"
+                                          type="number"
+                                          value={newListing.price || ""}
+                                          onChange={(e) => setNewListing({ 
+                                            ...newListing, 
+                                            price: e.target.value ? parseFloat(e.target.value) : 0 
+                                          })}
+                                          placeholder="0.00"
+                                        />
                                       </div>
-                                    )}
+                                      
+                                      <div className="grid gap-2">
+                                        <Label htmlFor="price_period">Period</Label>
+                                        <Select
+                                          value={newListing.price_period || "month"}
+                                          onValueChange={(value) => setNewListing({ ...newListing, price_period: value })}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select period" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="month">Monthly</SelectItem>
+                                            <SelectItem value="day">Daily</SelectItem>
+                                            <SelectItem value="hour">Hourly</SelectItem>
+                                            <SelectItem value="one-time">One-time</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="location">Location</Label>
+                                      <Input
+                                        id="location"
+                                        value={newListing.location || ""}
+                                        onChange={(e) => setNewListing({ ...newListing, location: e.target.value })}
+                                        placeholder="Enter location"
+                                      />
+                                    </div>
+                                    
+                                    <div className="grid gap-2">
+                                      <Label htmlFor="images">Images</Label>
+                                      <div className="flex items-center gap-2">
+                                        <Label
+                                          htmlFor="images"
+                                          className="cursor-pointer flex h-10 w-full items-center justify-center rounded-md border border-input bg-background hover:bg-accent"
+                                        >
+                                          <Plus className="h-4 w-4 mr-2" />
+                                          {listingImages.length === 0 ? "Add Images" : `${listingImages.length} image(s) selected`}
+                                        </Label>
+                                        <Input
+                                          id="images"
+                                          type="file"
+                                          accept="image/*"
+                                          multiple
+                                          className="hidden"
+                                          onChange={handleListingImageUpload}
+                                        />
+                                      </div>
+                                      {listingImages.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                          {listingImages.map((file, index) => (
+                                            <div 
+                                              key={index}
+                                              className="relative h-16 w-16 rounded-md overflow-hidden bg-muted"
+                                            >
+                                              <img
+                                                src={URL.createObjectURL(file)}
+                                                alt={`Preview ${index}`}
+                                                className="h-full w-full object-cover"
+                                              />
+                                              <button
+                                                type="button"
+                                                className="absolute top-0 right-0 bg-destructive text-destructive-foreground p-1 rounded-bl-md"
+                                                onClick={() => setListingImages(prev => prev.filter((_, i) => i !== index))}
+                                              >
+                                                <Trash className="h-3 w-3" />
+                                              </button>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                                <DialogFooter>
-                                  <Button variant="outline" onClick={() => setShowAddListingDialog(false)}>
-                                    Cancel
-                                  </Button>
-                                  <Button onClick={handleCreateListing}>Create Listing</Button>
-                                </DialogFooter>
-                              </DialogContent>
-                            </Dialog>
+                                  <DialogFooter>
+                                    <Button variant="outline" onClick={() => setShowAddListingDialog(false)}>
+                                      Cancel
+                                    </Button>
+                                    <Button onClick={handleCreateListing}>Create Listing</Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="settings">
-                  <Card>
-                    <CardContent className="p-6">
-                      <form onSubmit={handleProfileUpdate} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="name" className="text-sm font-medium">
-                            Full Name
-                          </Label>
-                          <Input 
-                            id="name" 
-                            value={formData.full_name}
-                            onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="email" className="text-sm font-medium">
-                            Email
-                          </Label>
-                          <Input 
-                            id="email" 
-                            type="email"
-                            value={formData.email || currentUser?.email || ""}
-                            onChange={(e) => setFormData({...formData, email: e.target.value})}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="phone" className="text-sm font-medium">
-                            Phone Number
-                          </Label>
-                          <Input 
-                            id="phone" 
-                            value={formData.phone}
-                            onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="location" className="text-sm font-medium">
-                            Location
-                          </Label>
-                          <Input 
-                            id="location" 
-                            value={formData.location}
-                            onChange={(e) => setFormData({...formData, location: e.target.value})}
-                          />
-                        </div>
-                        
-                        <Button type="submit" className="mt-2">
-                          Save Changes
-                        </Button>
-                      </form>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="settings">
+                    <Card>
+                      <CardContent className="p-6">
+                        <form onSubmit={handleProfileUpdate} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="name" className="text-sm font-medium">
+                              Full Name
+                            </Label>
+                            <Input 
+                              id="name" 
+                              value={formData.full_name}
+                              onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="email" className="text-sm font-medium">
+                              Email
+                            </Label>
+                            <Input 
+                              id="email" 
+                              type="email"
+                              value={formData.email || currentUser?.email || ""}
+                              onChange={(e) => setFormData({...formData, email: e.target.value})}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="phone" className="text-sm font-medium">
+                              Phone Number
+                            </Label>
+                            <Input 
+                              id="phone" 
+                              value={formData.phone}
+                              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="location" className="text-sm font-medium">
+                              Location
+                            </Label>
+                            <Input 
+                              id="location" 
+                              value={formData.location}
+                              onChange={(e) => setFormData({...formData, location: e.target.value})}
+                            />
+                          </div>
+                          
+                          <Button type="submit" className="mt-2">
+                            Save Changes
+                          </Button>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
       <Footer />
     </div>
