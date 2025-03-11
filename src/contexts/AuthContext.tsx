@@ -1,44 +1,43 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  updateProfile as updateFirebaseProfile,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
+import { AuthError, Session, User } from '@supabase/supabase-js';
 import { toast } from "sonner";
 
 // Define the User type
-interface User {
-  uid: string;
+interface Profile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  location: string | null;
   email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-  phoneNumber: string | null;
 }
 
 // Define the AuthContextType
 interface AuthContextType {
   currentUser: User | null;
+  profile: Profile | null;
+  session: Session | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  updateProfile: (data: Partial<Profile>) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<string | null>;
 }
 
 // Create the AuthContext with default values
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
+  profile: null,
+  session: null,
   isLoading: true,
   login: async () => {},
   signup: async () => {},
   logout: async () => {},
   updateProfile: async () => {},
+  uploadAvatar: async () => null,
 });
 
 // Create a custom hook to use the AuthContext
@@ -49,68 +48,89 @@ export const useAuth = () => {
 // Create the AuthProvider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Set up auth state listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Get additional user data from Firestore
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setCurrentUser({
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-              photoURL: user.photoURL,
-              phoneNumber: userData.phoneNumber || user.phoneNumber,
-            });
-          } else {
-            // If no additional data exists, just use Firebase auth data
-            setCurrentUser({
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-              photoURL: user.photoURL,
-              phoneNumber: user.phoneNumber,
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-          // Fallback to basic user info if Firestore fetch fails
-          setCurrentUser({
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            phoneNumber: user.phoneNumber,
-          });
-        }
-      } else {
-        setCurrentUser(null);
-      }
-      
-      setIsLoading(false);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        setCurrentUser(session?.user || null);
+        setIsLoading(true);
 
-    return unsubscribe;
+        if (session?.user) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (error) {
+            console.error("Error fetching profile:", error);
+          } else if (data) {
+            setProfile(data);
+          }
+        } else {
+          setProfile(null);
+        }
+
+        setIsLoading(false);
+      }
+    );
+
+    // Initial session fetch
+    const initializeAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setCurrentUser(session?.user || null);
+
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching profile:", error);
+        } else if (data) {
+          setProfile(data);
+        }
+      }
+
+      setIsLoading(false);
+    };
+
+    initializeAuth();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Login function
   const login = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      
       toast.success("Logged in successfully!");
     } catch (error: any) {
       console.error('Login error:', error);
       let errorMessage = "Failed to login. Please check your credentials.";
       
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        errorMessage = "Invalid email or password.";
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Too many failed login attempts. Please try again later.";
+      if (error instanceof AuthError) {
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = "Invalid email or password.";
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = "Too many failed login attempts. Please try again later.";
+        }
       }
       
       toast.error(errorMessage);
@@ -121,36 +141,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Signup function
   const signup = async (email: string, password: string, name: string) => {
     try {
-      // Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // Update profile with display name
-      await updateFirebaseProfile(user, {
-        displayName: name
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+          },
+        },
       });
+
+      if (error) throw error;
       
-      // Create user document in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        email: user.email,
-        displayName: name,
-        photoURL: null,
-        phoneNumber: null,
-        createdAt: new Date().toISOString(),
-      });
-      
-      toast.success("Account created successfully!");
+      toast.success("Account created successfully! Check your email for confirmation.");
     } catch (error: any) {
       console.error('Signup error:', error);
       let errorMessage = "Failed to create account.";
       
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "Email is already in use.";
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = "Password is too weak.";
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = "Invalid email address.";
+      if (error instanceof AuthError) {
+        if (error.message.includes('already exists')) {
+          errorMessage = "Email is already in use.";
+        } else if (error.message.includes('password')) {
+          errorMessage = "Password is too weak.";
+        } else if (error.message.includes('email')) {
+          errorMessage = "Invalid email address.";
+        }
       }
       
       toast.error(errorMessage);
@@ -161,7 +176,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Logout function
   const logout = async () => {
     try {
-      await signOut(auth);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
       toast.success("Logged out successfully!");
     } catch (error) {
       console.error('Logout error:', error);
@@ -170,29 +187,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Update profile function
-  const updateProfile = async (data: Partial<User>) => {
+  // Upload avatar function
+  const uploadAvatar = async (file: File): Promise<string | null> => {
     try {
       if (!currentUser) throw new Error("No user is logged in");
       
-      // Update Firebase Auth profile if displayName or photoURL is provided
-      if (data.displayName || data.photoURL) {
-        const updateData: { displayName?: string; photoURL?: string } = {};
-        if (data.displayName) updateData.displayName = data.displayName;
-        if (data.photoURL) updateData.photoURL = data.photoURL;
-        
-        await updateFirebaseProfile(auth.currentUser as FirebaseUser, updateData);
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${currentUser.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('profile_pictures')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data } = supabase.storage
+        .from('profile_pictures')
+        .getPublicUrl(filePath);
+      
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast.error("Failed to upload avatar.");
+      return null;
+    }
+  };
+
+  // Update profile function
+  const updateProfile = async (data: Partial<Profile>) => {
+    try {
+      if (!currentUser) throw new Error("No user is logged in");
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', currentUser.id);
+      
+      if (error) throw error;
+      
+      // Update local profile state
+      if (profile) {
+        setProfile({ ...profile, ...data });
       }
-      
-      // Update additional user data in Firestore
-      const userRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userRef, {
-        ...data,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      
-      // Update local user state
-      setCurrentUser(prevUser => prevUser ? { ...prevUser, ...data } : null);
       
       toast.success("Profile updated successfully!");
     } catch (error) {
@@ -204,11 +243,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const value = {
     currentUser,
+    profile,
+    session,
     isLoading,
     login,
     signup,
     logout,
     updateProfile,
+    uploadAvatar,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
