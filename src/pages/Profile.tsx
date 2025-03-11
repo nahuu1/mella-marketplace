@@ -37,6 +37,7 @@ const Profile = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [showAddListingDialog, setShowAddListingDialog] = useState(false);
   const [fetchingListings, setFetchingListings] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   
   // Form state for profile
   const [formData, setFormData] = useState({
@@ -76,6 +77,7 @@ const Profile = () => {
         location: profile.location || "",
         email: profile.email || "",
       });
+      setProfileLoaded(true);
     }
   }, [profile]);
   
@@ -102,27 +104,29 @@ const Profile = () => {
       }
     };
     
-    fetchListings();
-    
-    // Set up realtime subscription for listings
-    const channel = supabase
-      .channel('public:listings')
-      .on('postgres_changes', 
-        {
-          event: '*',
-          schema: 'public',
-          table: 'listings',
-          filter: `user_id=eq.${currentUser?.id}`,
-        }, 
-        () => {
-          fetchListings();
-        }
-      )
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    if (currentUser) {
+      fetchListings();
+      
+      // Set up realtime subscription for listings
+      const channel = supabase
+        .channel('listings-changes')
+        .on('postgres_changes', 
+          {
+            event: '*',
+            schema: 'public',
+            table: 'listings',
+            filter: `user_id=eq.${currentUser.id}`,
+          }, 
+          () => {
+            fetchListings();
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [currentUser]);
   
   const handleProfileUpdate = async (e: React.FormEvent) => {
@@ -135,8 +139,10 @@ const Profile = () => {
         location: formData.location,
         email: formData.email,
       });
+      toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
     }
   };
   
@@ -146,6 +152,7 @@ const Profile = () => {
       navigate("/auth");
     } catch (error) {
       console.error("Error logging out:", error);
+      toast.error("Failed to log out");
     }
   };
   
@@ -159,9 +166,11 @@ const Profile = () => {
       
       if (avatarUrl) {
         await updateProfile({ avatar_url: avatarUrl });
+        toast.success("Profile picture updated successfully!");
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
+      toast.error("Failed to upload profile picture");
     } finally {
       setIsUploading(false);
     }
@@ -206,6 +215,16 @@ const Profile = () => {
   
   const handleCreateListing = async () => {
     if (!currentUser) return;
+    
+    if (!newListing.title) {
+      toast.error("Please enter a title for your listing");
+      return;
+    }
+    
+    if (!newListing.category) {
+      toast.error("Please select a category for your listing");
+      return;
+    }
     
     try {
       // Upload images first
@@ -264,10 +283,30 @@ const Profile = () => {
     }
   };
   
+  // Show loading state if user data is still loading
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <p>Loading profile...</p>
+      <div className="min-h-screen flex flex-col">
+        <SiteHeader />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+          <p className="ml-2">Loading profile...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Show not logged in message if no user but loading is complete
+  if (!currentUser && !isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <SiteHeader />
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+          <h1 className="text-2xl font-bold mb-4">Please sign in to view your profile</h1>
+          <Button onClick={() => navigate("/auth")}>Sign In</Button>
+        </div>
+        <Footer />
       </div>
     );
   }
@@ -345,6 +384,9 @@ const Profile = () => {
                     <CardContent className="p-6">
                       {fetchingListings ? (
                         <div className="text-center py-12">
+                          <div className="flex justify-center mb-4">
+                            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+                          </div>
                           <p>Loading your listings...</p>
                         </div>
                       ) : myListings.length > 0 ? (
