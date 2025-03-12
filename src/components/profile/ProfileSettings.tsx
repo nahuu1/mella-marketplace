@@ -48,6 +48,7 @@ export const ProfileSettings = () => {
     setIsSubmitting(true);
     try {
       await updateProfile({
+        id: currentUser.id,
         full_name: formData.full_name,
         phone: formData.phone,
         location: formData.location,

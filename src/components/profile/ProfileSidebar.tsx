@@ -8,7 +8,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export const ProfileSidebar = () => {
-  const { currentUser, profile, logout, updateProfile, uploadAvatar } = useAuth();
+  const { currentUser, profile, logout, uploadAvatar, updateGeoLocation } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   
   const handleLogout = async () => {
@@ -27,17 +27,23 @@ export const ProfileSidebar = () => {
     
     setIsUploading(true);
     try {
-      const avatarUrl = await uploadAvatar(file);
-      
-      if (avatarUrl) {
-        await updateProfile({ avatar_url: avatarUrl });
-        toast.success("Profile picture updated successfully!");
-      }
+      await uploadAvatar(file);
+      toast.success("Profile picture updated successfully!");
     } catch (error) {
       console.error("Error uploading avatar:", error);
       toast.error("Failed to upload profile picture");
     } finally {
       setIsUploading(false);
+    }
+  };
+  
+  const handleUpdateLocation = async () => {
+    try {
+      await updateGeoLocation();
+      toast.success("Location updated successfully!");
+    } catch (error) {
+      console.error("Error updating location:", error);
+      toast.error("Failed to update location");
     }
   };
   
@@ -83,6 +89,15 @@ export const ProfileSidebar = () => {
       </CardHeader>
       
       <CardContent className="pt-6">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full mb-2"
+          onClick={handleUpdateLocation}
+        >
+          <MapPin className="h-4 w-4 mr-2" />
+          Update Location
+        </Button>
         <Button 
           variant="outline" 
           size="sm" 

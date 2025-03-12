@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SiteHeader } from "@/components/site/header";
 import { Footer } from "@/components/site/footer";
-import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProfileSidebar } from "@/components/profile/ProfileSidebar";
@@ -13,11 +12,11 @@ import { toast } from "sonner";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { currentUser, isLoading } = useAuth();
+  const { currentUser, profile, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState("listings");
   
-  // Redirect if not logged in after loading completes
   useEffect(() => {
+    // Redirect if not logged in after loading completes
     if (!isLoading && !currentUser) {
       toast.error("Please sign in to view your profile");
       navigate("/auth");

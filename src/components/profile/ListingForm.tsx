@@ -8,12 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Plus, Trash } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, profile } = useAuth();
   const [showAddListingDialog, setShowAddListingDialog] = useState(false);
+  const [userLocation, setUserLocation] = useState<string | null>(null);
   
   // Form state for new listing
   const [newListing, setNewListing] = useState({
@@ -28,6 +29,19 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   });
   
   const [listingImages, setListingImages] = useState<File[]>([]);
+  
+  // Get user's location from profile when component mounts
+  useEffect(() => {
+    if (profile) {
+      setUserLocation(profile.location || null);
+      if (profile.location) {
+        setNewListing(prev => ({
+          ...prev,
+          location: profile.location || ""
+        }));
+      }
+    }
+  }, [profile]);
   
   const handleListingImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -67,7 +81,10 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   };
   
   const handleCreateListing = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      toast.error("You must be logged in to create a listing");
+      return;
+    }
     
     if (!newListing.title) {
       toast.error("Please enter a title for your listing");
@@ -83,6 +100,23 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       // Upload images first
       const imageUrls = await uploadListingImages();
       
+      // Get current geo-location if available
+      let geoLocation = null;
+      if (navigator.geolocation) {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+          });
+          
+          geoLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+        } catch (error) {
+          console.log("Could not get geo location:", error);
+        }
+      }
+      
       // Create listing
       const { error } = await supabase
         .from('listings')
@@ -94,8 +128,10 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           subcategory: newListing.subcategory || "",
           price: newListing.price || 0,
           price_period: newListing.price_period || "month",
-          location: newListing.location || "",
+          location: newListing.location || profile?.location || "",
           images: imageUrls,
+          geo_location: geoLocation,
+          is_featured: true,  // Mark as featured so it appears on home page
         });
       
       if (error) throw error;
@@ -109,7 +145,7 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
         subcategory: "",
         price: 0,
         price_period: "month",
-        location: "",
+        location: profile?.location || "",
         images: [],
       });
       setListingImages([]);

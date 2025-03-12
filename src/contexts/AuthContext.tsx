@@ -1,5 +1,5 @@
 
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useEffect } from 'react';
 import { useAuthState } from './auth/useAuthState';
 import { useProfile } from './auth/useProfile';
 import { authOperations } from './auth/authOperations';
@@ -15,6 +15,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   updateProfile: async () => {},
   uploadAvatar: async () => null,
+  updateGeoLocation: async () => {},
 });
 
 export const useAuth = () => {
@@ -23,7 +24,25 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { currentUser, session, isLoading } = useAuthState();
-  const { profile, updateProfile, uploadAvatar } = useProfile();
+  const { 
+    profile, 
+    updateProfile, 
+    uploadAvatar, 
+    updateGeoLocation: updateGeo 
+  } = useProfile();
+  
+  // Update geo location whenever the user logs in
+  useEffect(() => {
+    if (currentUser?.id && !isLoading) {
+      updateGeo(currentUser.id);
+    }
+  }, [currentUser?.id, isLoading]);
+  
+  const updateGeoLocation = async () => {
+    if (currentUser?.id) {
+      await updateGeo(currentUser.id);
+    }
+  };
   
   const value = {
     currentUser,
@@ -35,6 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout: authOperations.logout,
     updateProfile,
     uploadAvatar: (file: File) => uploadAvatar(file, currentUser?.id || ''),
+    updateGeoLocation,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { useProfile } from './useProfile';
 import { toast } from "sonner";
 
 export const useAuthState = () => {
@@ -10,28 +9,18 @@ export const useAuthState = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authInitialized, setAuthInitialized] = useState(false);
-  const { profile, setProfile, fetchUserProfile } = useProfile();
 
   useEffect(() => {
     console.log("Setting up auth state listener");
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.id);
-        setSession(session);
-        setCurrentUser(session?.user || null);
+      async (event, newSession) => {
+        console.log("Auth state changed:", event, newSession?.user?.id);
+        setSession(newSession);
+        setCurrentUser(newSession?.user || null);
         
-        if (session?.user) {
-          try {
-            await fetchUserProfile(session.user.id);
-          } catch (error) {
-            console.error("Error fetching profile after auth change:", error);
-          }
-        } else {
-          setProfile(null);
-          if (authInitialized) {
-            setIsLoading(false);
-          }
+        if (event === 'SIGNED_OUT') {
+          setIsLoading(false);
         }
       }
     );
@@ -45,16 +34,12 @@ export const useAuthState = () => {
         
         setSession(session);
         setCurrentUser(session?.user || null);
-
-        if (session?.user) {
-          try {
-            await fetchUserProfile(session.user.id);
-          } catch (error) {
-            console.error("Error fetching initial profile:", error);
-          }
-        }
-        setIsLoading(false);
-        setAuthInitialized(true);
+        
+        // Finalize loading state after a short delay to allow other components to initialize
+        setTimeout(() => {
+          setIsLoading(false);
+          setAuthInitialized(true);
+        }, 500);
       } catch (err) {
         console.error("Auth initialization error:", err);
         setIsLoading(false);

@@ -8,6 +8,7 @@ export interface Profile {
   phone: string | null;
   location: string | null;
   email: string | null;
+  geo_location: { latitude: number; longitude: number } | null;
 }
 
 export interface AuthContextType {
@@ -20,4 +21,5 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
   uploadAvatar: (file: File) => Promise<string | null>;
+  updateGeoLocation: () => Promise<void>;
 }
