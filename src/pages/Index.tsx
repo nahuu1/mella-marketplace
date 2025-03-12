@@ -1,6 +1,6 @@
 
 import { SiteHeader } from "@/components/site/header";
-import { Hero } from "@/components/site/hero";
+import { EmergencyServices } from "@/components/site/emergency-services";
 import { FeaturedListings } from "@/components/site/featured-listings";
 import { CategoriesSection } from "@/components/site/categories-section";
 import { FeaturesSection } from "@/components/site/features-section";
@@ -12,7 +12,7 @@ const Index = () => {
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
       <main className="flex-1">
-        <Hero />
+        <EmergencyServices />
         <FeaturedListings />
         <CategoriesSection />
         <FeaturesSection />

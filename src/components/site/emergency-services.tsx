@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Phone, AlertCircle } from "lucide-react";
+import { MapPin, Phone, AlertCircle, AlertTriangle, Shield, Stethoscope, Building, Pill } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 // Types for emergency services
 interface EmergencyService {
@@ -101,17 +103,28 @@ const deg2rad = (deg: number): number => {
 const getServiceIcon = (type: string) => {
   switch(type) {
     case 'hospital':
-    case 'clinic':
-      return <AlertCircle className="h-5 w-5 text-red-500" />;
+      return <Stethoscope className="h-5 w-5 text-red-500" />;
     case 'police':
-      return <AlertCircle className="h-5 w-5 text-blue-500" />;
+      return <Shield className="h-5 w-5 text-blue-500" />;
     case 'fire':
-      return <AlertCircle className="h-5 w-5 text-orange-500" />;
+      return <AlertTriangle className="h-5 w-5 text-orange-500" />;
+    case 'clinic':
+      return <Building className="h-5 w-5 text-emerald-500" />;
     case 'pharmacy':
-      return <AlertCircle className="h-5 w-5 text-green-500" />;
+      return <Pill className="h-5 w-5 text-green-500" />;
     default:
       return <AlertCircle className="h-5 w-5" />;
   }
+};
+
+// Background images for emergency service types
+const serviceBackgrounds = {
+  'hospital': "https://images.unsplash.com/photo-1538108149393-fbbd81895907?ixlib=rb-1.2.1&auto=format&fit=crop&w=2000&q=80",
+  'police': "https://images.unsplash.com/photo-1542400935-70190c63c242?ixlib=rb-1.2.1&auto=format&fit=crop&w=2000&q=80",
+  'fire': "https://images.unsplash.com/photo-1560178789-686486fbac85?ixlib=rb-1.2.1&auto=format&fit=crop&w=2000&q=80",
+  'clinic': "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?ixlib=rb-1.2.1&auto=format&fit=crop&w=2000&q=80",
+  'pharmacy': "https://images.unsplash.com/photo-1563453392212-326f5e854473?ixlib=rb-1.2.1&auto=format&fit=crop&w=2000&q=80",
+  'default': "https://images.unsplash.com/photo-1579684385127-1ef15d508118?ixlib=rb-1.2.1&auto=format&fit=crop&w=2000&q=80"
 };
 
 export const EmergencyServices = () => {
@@ -119,6 +132,8 @@ export const EmergencyServices = () => {
   const [nearbyServices, setNearbyServices] = useState<EmergencyService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     // Use browser's Geolocation API to get user's location
@@ -135,7 +150,7 @@ export const EmergencyServices = () => {
           const { latitude, longitude } = position.coords;
           setUserLocation({ latitude, longitude });
           
-          // Calculate distances and filter services within 10km
+          // Calculate distances for all services
           const servicesWithDistance = mockEmergencyServices.map(service => {
             const distance = calculateDistance(
               latitude, 
@@ -144,8 +159,7 @@ export const EmergencyServices = () => {
               service.location.longitude
             );
             return { ...service, distance };
-          }).filter(service => service.distance && service.distance <= 10)
-            .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+          }).sort((a, b) => (a.distance || 0) - (b.distance || 0));
 
           setNearbyServices(servicesWithDistance);
           setIsLoading(false);
@@ -164,12 +178,15 @@ export const EmergencyServices = () => {
   const handleRefresh = () => {
     setIsLoading(true);
     setError(null);
+    setFilterType('all');
+    setSearchQuery('');
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         setUserLocation({ latitude, longitude });
         
-        // Calculate distances and filter services within 10km
+        // Calculate distances for all services
         const servicesWithDistance = mockEmergencyServices.map(service => {
           const distance = calculateDistance(
             latitude, 
@@ -178,8 +195,7 @@ export const EmergencyServices = () => {
             service.location.longitude
           );
           return { ...service, distance };
-        }).filter(service => service.distance && service.distance <= 10)
-          .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        }).sort((a, b) => (a.distance || 0) - (b.distance || 0));
 
         setNearbyServices(servicesWithDistance);
         setIsLoading(false);
@@ -192,93 +208,145 @@ export const EmergencyServices = () => {
     );
   };
 
+  const handleCallEmergency = (phone: string) => {
+    window.location.href = `tel:${phone}`;
+  };
+
+  // Filter services based on selected type and search query
+  const filteredServices = nearbyServices.filter(service => {
+    const matchesType = filterType === 'all' || service.type === filterType;
+    const matchesSearch = searchQuery === '' || 
+      service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.address.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesSearch;
+  });
+
+  // Get background image based on filter type
+  const getBackgroundImage = () => {
+    if (filterType === 'all') {
+      return serviceBackgrounds.default;
+    }
+    return serviceBackgrounds[filterType as keyof typeof serviceBackgrounds] || serviceBackgrounds.default;
+  };
+
   if (error) {
     return (
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Emergency Services Nearby</CardTitle>
-          <CardDescription>Find emergency services within 10km of your location</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center p-6 text-center">
-            <AlertCircle className="h-10 w-10 text-red-500 mb-4" />
-            <p className="mb-4">{error}</p>
-            <Button onClick={handleRefresh}>Try Again</Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Emergency Services Nearby</CardTitle>
-          <CardDescription>Finding emergency services within 10km of your location</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <section className="relative h-screen flex items-center justify-center p-4 bg-gray-100">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-4">Location Access Required</h2>
+          <p className="mb-6 text-gray-600">{error}</p>
+          <Button onClick={handleRefresh} size="lg">Try Again</Button>
+        </div>
+      </section>
     );
   }
 
   return (
-    <Card className="mb-8">
-      <CardHeader>
-        <CardTitle>Emergency Services Nearby</CardTitle>
-        <CardDescription>
-          {nearbyServices.length 
-            ? `Showing ${nearbyServices.length} emergency services within 10km of your location` 
-            : 'No emergency services found within 10km of your location'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {nearbyServices.length === 0 ? (
-          <div className="text-center p-6">
-            <p>No emergency services found within 10km.</p>
-            <Button onClick={handleRefresh} className="mt-4">Refresh</Button>
+    <section className="relative min-h-screen">
+      {/* Background Image */}
+      <div className="absolute inset-0 w-full h-full">
+        <img
+          src={getBackgroundImage()}
+          alt="Emergency services background"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/50"></div>
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-16 flex flex-col items-center">
+        <div className="text-center text-white mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Emergency Services Nearby</h1>
+          <p className="text-lg md:text-xl max-w-2xl mx-auto">
+            Find and call emergency services in your area. Your safety is our priority.
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-64 w-full">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mb-4"></div>
+            <p className="text-white text-lg">Locating emergency services near you...</p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {nearbyServices.map((service) => (
-                <Card key={service.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1">
-                        {getServiceIcon(service.type)}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">{service.name}</h3>
-                        <div className="text-sm text-muted-foreground flex items-center mt-1">
-                          <MapPin className="h-3 w-3 mr-1" />
-                          <span className="truncate">{service.address}</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-2">
-                          <div className="flex items-center">
-                            <Phone className="h-3 w-3 mr-1 text-primary" />
-                            <a href={`tel:${service.phone}`} className="text-sm font-medium">{service.phone}</a>
-                          </div>
-                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                            {service.distance ? service.distance.toFixed(1) : 0} km
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="w-full max-w-4xl mb-8">
+              <div className="bg-white/10 backdrop-blur-sm p-4 rounded-lg border border-white/20 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+                <Input 
+                  placeholder="Search by name or address" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 bg-white/20 border-white/30 text-white placeholder:text-white/70"
+                />
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-full md:w-[180px] bg-white/20 border-white/30 text-white">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Services</SelectItem>
+                    <SelectItem value="hospital">Hospitals</SelectItem>
+                    <SelectItem value="police">Police Stations</SelectItem>
+                    <SelectItem value="fire">Fire Stations</SelectItem>
+                    <SelectItem value="clinic">Clinics</SelectItem>
+                    <SelectItem value="pharmacy">Pharmacies</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={handleRefresh} className="md:w-auto border-white text-white hover:bg-white/10">
+                  Refresh
+                </Button>
+              </div>
             </div>
-            <div className="flex justify-center mt-6">
-              <Button onClick={handleRefresh} variant="outline">Refresh Location</Button>
-            </div>
+
+            {filteredServices.length === 0 ? (
+              <div className="text-center p-8 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+                <p className="text-white text-lg mb-4">No emergency services found matching your criteria.</p>
+                <Button onClick={handleRefresh} variant="outline" className="border-white text-white hover:bg-white/10">
+                  Reset Filters
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+                {filteredServices.map((service) => (
+                  <Card key={service.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-white/10 backdrop-blur-sm border-white/20 text-white">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          {getServiceIcon(service.type)}
+                          <CardTitle className="text-lg font-bold">{service.name}</CardTitle>
+                        </div>
+                        <span className="bg-white/20 px-2 py-1 rounded-full text-xs font-medium">
+                          {service.distance ? `${service.distance.toFixed(1)} km` : 'Unknown'}
+                        </span>
+                      </div>
+                      <CardDescription className="text-white/80">
+                        {service.type.charAt(0).toUpperCase() + service.type.slice(1)}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 mt-1 flex-shrink-0" />
+                          <span className="text-sm">{service.address}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 flex-shrink-0" />
+                          <span className="text-sm font-medium">{service.phone}</span>
+                        </div>
+                        <Button 
+                          className="w-full mt-2 bg-white/20 hover:bg-white/30"
+                          onClick={() => handleCallEmergency(service.phone)}
+                        >
+                          <Phone className="mr-2 h-4 w-4" />
+                          Call Now
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 };
