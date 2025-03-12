@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 export const ProfileSettings = () => {
   const { currentUser, profile, updateProfile } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state for profile
   const [formData, setFormData] = useState({
@@ -24,14 +26,26 @@ export const ProfileSettings = () => {
         full_name: profile.full_name || "",
         phone: profile.phone || "",
         location: profile.location || "",
-        email: profile.email || "",
+        email: profile.email || currentUser?.email || "",
       });
+    } else if (currentUser) {
+      // If no profile but user exists, set email from user
+      setFormData(prev => ({
+        ...prev,
+        email: currentUser.email || "",
+      }));
     }
-  }, [profile]);
+  }, [profile, currentUser]);
   
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!currentUser) {
+      toast.error("You must be logged in to update your profile");
+      return;
+    }
+    
+    setIsSubmitting(true);
     try {
       await updateProfile({
         full_name: formData.full_name,
@@ -39,8 +53,13 @@ export const ProfileSettings = () => {
         location: formData.location,
         email: formData.email,
       });
+      
+      toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -93,8 +112,8 @@ export const ProfileSettings = () => {
             />
           </div>
           
-          <Button type="submit" className="mt-2">
-            Save Changes
+          <Button type="submit" className="mt-2" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </form>
       </CardContent>

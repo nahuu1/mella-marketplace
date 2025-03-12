@@ -64,7 +64,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser(session?.user || null);
         
         if (session?.user) {
-          await fetchUserProfile(session.user.id);
+          try {
+            await fetchUserProfile(session.user.id);
+          } catch (error) {
+            console.error("Error fetching profile after auth change:", error);
+          }
         } else {
           setProfile(null);
           if (authInitialized) {
@@ -78,6 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initializeAuth = async () => {
       try {
         console.log("Initializing auth...");
+        setIsLoading(true);
         const { data: { session } } = await supabase.auth.getSession();
         console.log("Session retrieved:", session?.user?.id);
         
@@ -85,7 +90,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser(session?.user || null);
 
         if (session?.user) {
-          await fetchUserProfile(session.user.id);
+          try {
+            await fetchUserProfile(session.user.id);
+          } catch (error) {
+            console.error("Error fetching initial profile:", error);
+            setIsLoading(false);
+          }
         } else {
           setIsLoading(false);
         }
@@ -115,9 +125,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         console.error("Error fetching profile:", error);
+        throw error;
       } else if (data) {
         console.log("Profile fetched:", data);
         setProfile(data);
+      } else {
+        console.log("No profile found, creating one...");
+        // If no profile exists, create one
+        const { error: createError } = await supabase
+          .from('profiles')
+          .insert([{ id: userId }]);
+          
+        if (createError) {
+          console.error("Error creating profile:", createError);
+        } else {
+          // Fetch again after creation
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+            
+          if (newProfile) {
+            setProfile(newProfile);
+          }
+        }
       }
     } catch (err) {
       console.error("Profile fetch error:", err);
