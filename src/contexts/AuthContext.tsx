@@ -51,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   // Set up auth state listener
   useEffect(() => {
@@ -63,27 +64,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser(session?.user || null);
         
         if (session?.user) {
-          try {
-            const { data, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (error) {
-              console.error("Error fetching profile:", error);
-            } else if (data) {
-              console.log("Profile fetched:", data);
-              setProfile(data);
-            }
-          } catch (err) {
-            console.error("Profile fetch error:", err);
-          } finally {
-            setIsLoading(false);
-          }
+          await fetchUserProfile(session.user.id);
         } else {
           setProfile(null);
-          setIsLoading(false);
+          if (authInitialized) {
+            setIsLoading(false);
+          }
         }
       }
     );
@@ -99,23 +85,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser(session?.user || null);
 
         if (session?.user) {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (error) {
-            console.error("Error fetching profile during init:", error);
-          } else if (data) {
-            console.log("Profile fetched during init:", data);
-            setProfile(data);
-          }
+          await fetchUserProfile(session.user.id);
+        } else {
+          setIsLoading(false);
         }
+        setAuthInitialized(true);
       } catch (err) {
         console.error("Auth initialization error:", err);
-      } finally {
         setIsLoading(false);
+        setAuthInitialized(true);
       }
     };
 
@@ -125,6 +103,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Helper function to fetch user profile
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+      } else if (data) {
+        console.log("Profile fetched:", data);
+        setProfile(data);
+      }
+    } catch (err) {
+      console.error("Profile fetch error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Login function
   const login = async (email: string, password: string) => {
