@@ -1,14 +1,16 @@
 
-import { useState } from 'react';
-import { toast } from "sonner";
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Profile } from './types';
+import { toast } from 'sonner';
 
 export const useProfile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -16,151 +18,140 @@ export const useProfile = () => {
         .single();
 
       if (error) {
-        console.error("Error fetching profile:", error);
-        throw error;
-      } else if (data) {
-        console.log("Profile fetched:", data);
-        setProfile(data);
-      } else {
-        console.log("No profile found, creating one...");
-        const { error: createError } = await supabase
-          .from('profiles')
-          .insert([{ id: userId }]);
-          
-        if (createError) {
-          console.error("Error creating profile:", createError);
-        } else {
-          const { data: newProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-            
-          if (newProfile) {
-            setProfile(newProfile);
-          }
-        }
+        console.error('Error fetching profile:', error);
+        return null;
       }
-    } catch (err) {
-      console.error("Profile fetch error:", err);
-    }
-  };
 
-  const updateProfile = async (data: Partial<Profile>) => {
-    try {
-      if (!data.id) {
-        throw new Error("User ID is required for profile update");
-      }
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          ...data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', data.id);
-      
-      if (error) throw error;
-      
-      // Fetch the updated profile to ensure we have the latest data
-      const { data: updatedProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.id)
-        .single();
-        
-      if (fetchError) throw fetchError;
-      
-      if (updatedProfile) {
-        setProfile(updatedProfile);
-      }
-      
-      toast.success("Profile updated successfully!");
+      setProfile(data);
+      return data;
     } catch (error) {
-      console.error('Profile update error:', error);
-      toast.error("Failed to update profile.");
+      console.error('Error in fetchProfile:', error);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const updateProfile = useCallback(async (updates: Partial<Profile>) => {
+    try {
+      if (!profile?.id) {
+        throw new Error('Profile ID not found');
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', profile.id)
+        .select('*')
+        .single();
+
+      if (error) {
+        toast.error('Failed to update profile');
+        throw error;
+      }
+
+      setProfile(data);
+      toast.success('Profile updated successfully');
+      return data;
+    } catch (error) {
+      console.error('Error updating profile:', error);
       throw error;
     }
-  };
+  }, [profile?.id]);
 
-  const uploadAvatar = async (file: File, userId: string): Promise<string | null> => {
+  const uploadAvatar = useCallback(async (file: File, userId: string) => {
     try {
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
       const fileExt = file.name.split('.').pop();
-      const filePath = `${userId}/${Date.now()}.${fileExt}`;
-      
+      const filePath = `${userId}/avatar.${fileExt}`;
+
       const { error: uploadError } = await supabase.storage
         .from('profile_pictures')
-        .upload(filePath, file);
-      
-      if (uploadError) throw uploadError;
-      
-      const { data } = supabase.storage
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        toast.error('Failed to upload avatar');
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
         .from('profile_pictures')
         .getPublicUrl(filePath);
-      
+
+      const avatarUrl = urlData.publicUrl;
+
       // Update the profile with the new avatar URL
-      if (userId && data.publicUrl) {
-        await updateProfile({
-          id: userId,
-          avatar_url: data.publicUrl
-        });
-      }
-      
-      return data.publicUrl;
+      await updateProfile({ 
+        avatar_url: avatarUrl 
+      });
+
+      toast.success('Avatar updated successfully');
+      return avatarUrl;
     } catch (error) {
-      console.error('Avatar upload error:', error);
-      toast.error("Failed to upload avatar.");
+      console.error('Error uploading avatar:', error);
       return null;
     }
-  };
+  }, [updateProfile]);
 
-  const updateGeoLocation = async (userId: string) => {
-    if (!userId) return;
-    
+  const updateGeoLocation = useCallback(async (userId: string) => {
     try {
-      if (navigator.geolocation) {
+      if (!userId) return;
+
+      if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            const geoLocation = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            };
+            const { latitude, longitude } = position.coords;
             
             const { error } = await supabase
               .from('profiles')
               .update({
-                geo_location: geoLocation,
-                updated_at: new Date().toISOString(),
+                geo_location: { latitude, longitude }
               })
               .eq('id', userId);
-            
-            if (error) throw error;
-            
-            if (profile) {
-              setProfile({
-                ...profile,
-                geo_location: geoLocation
-              });
+
+            if (error) {
+              console.error('Error updating geo location:', error);
+            } else {
+              // Update local state with the new geo location
+              setProfile(prev => 
+                prev ? { ...prev, geo_location: { latitude, longitude } } : null
+              );
+              console.log('Geo location updated successfully');
             }
-            
-            console.log("Geo location updated successfully!");
           },
           (error) => {
-            console.error("Error getting geolocation:", error);
+            console.error('Error getting geo location:', error);
           }
         );
-      } else {
-        console.log("Geolocation is not supported by this browser.");
       }
     } catch (error) {
-      console.error('Geo location update error:', error);
+      console.error('Error in updateGeoLocation:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user?.id) {
+          fetchProfile(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
+          setProfile(null);
+        }
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [fetchProfile]);
 
   return {
     profile,
-    setProfile,
-    fetchUserProfile,
+    isLoading,
+    fetchProfile,
     updateProfile,
     uploadAvatar,
     updateGeoLocation,
