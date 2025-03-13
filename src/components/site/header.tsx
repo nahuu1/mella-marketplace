@@ -2,14 +2,22 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Search, Menu, X, User } from "lucide-react";
+import { Search, Menu, X, User, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage, Language } from "@/contexts/LanguageContext";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 export function SiteHeader() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { currentUser, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,6 +51,10 @@ export function SiteHeader() {
     }
   };
 
+  const toggleLanguage = () => {
+    setLanguage(language === "en" ? "am" : "en");
+  };
+
   const headerClasses = cn(
     "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out px-4 md:px-8",
     {
@@ -66,26 +78,43 @@ export function SiteHeader() {
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center space-x-8">
           <Link to="/explore" className="text-sm font-medium hover:text-primary/70 transition-colors">
-            Explore
+            {t("explore")}
           </Link>
           <Link to="/houses" className="text-sm font-medium hover:text-primary/70 transition-colors">
-            Houses
+            {t("houses")}
           </Link>
           <Link to="/cars" className="text-sm font-medium hover:text-primary/70 transition-colors">
-            Cars
+            {t("cars")}
           </Link>
           <Link to="/services" className="text-sm font-medium hover:text-primary/70 transition-colors">
-            Services
+            {t("services")}
           </Link>
           <Link to="/products" className="text-sm font-medium hover:text-primary/70 transition-colors">
-            Products
+            {t("products")}
           </Link>
         </nav>
 
         <div className="hidden md:flex items-center space-x-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="rounded-full px-2 mr-2">
+                <Globe className="h-4 w-4" />
+                <span className="ml-1">{language === "en" ? "EN" : "አማ"}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setLanguage("en")}>
+                English
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLanguage("am")}>
+                አማርኛ
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <Button variant="outline" size="sm" className="rounded-full px-4">
             <Search className="h-4 w-4 mr-2" />
-            Search
+            {t("search")}
           </Button>
           
           {currentUser ? (
@@ -97,7 +126,7 @@ export function SiteHeader() {
           ) : (
             <Link to="/auth">
               <Button size="sm" className="rounded-full px-4">
-                Sign in
+                {t("signin")}
               </Button>
             </Link>
           )}
@@ -132,52 +161,61 @@ export function SiteHeader() {
               className="text-xl font-medium hover:text-primary/70 transition-colors"
               onClick={toggleMenu}
             >
-              Explore
+              {t("explore")}
             </Link>
             <Link 
               to="/houses" 
               className="text-xl font-medium hover:text-primary/70 transition-colors"
               onClick={toggleMenu}
             >
-              Houses
+              {t("houses")}
             </Link>
             <Link 
               to="/cars" 
               className="text-xl font-medium hover:text-primary/70 transition-colors"
               onClick={toggleMenu}
             >
-              Cars
+              {t("cars")}
             </Link>
             <Link 
               to="/services" 
               className="text-xl font-medium hover:text-primary/70 transition-colors"
               onClick={toggleMenu}
             >
-              Services
+              {t("services")}
             </Link>
             <Link 
               to="/products" 
               className="text-xl font-medium hover:text-primary/70 transition-colors"
               onClick={toggleMenu}
             >
-              Products
+              {t("products")}
             </Link>
             <div className="pt-6 flex flex-col space-y-4 w-full items-center">
+              <Button 
+                variant="outline" 
+                className="rounded-full w-48 flex items-center justify-center"
+                onClick={toggleLanguage}
+              >
+                <Globe className="h-4 w-4 mr-2" />
+                {language === "en" ? "Switch to አማርኛ" : "Switch to English"}
+              </Button>
+              
               <Button variant="outline" className="rounded-full w-48">
                 <Search className="h-4 w-4 mr-2" />
-                Search
+                {t("search")}
               </Button>
               
               {currentUser ? (
                 <Link to="/profile" className="w-48" onClick={toggleMenu}>
                   <Button className="rounded-full w-full">
-                    Profile
+                    {t("profile")}
                   </Button>
                 </Link>
               ) : (
                 <Link to="/auth" className="w-48" onClick={toggleMenu}>
                   <Button className="rounded-full w-full">
-                    Sign in
+                    {t("signin")}
                   </Button>
                 </Link>
               )}

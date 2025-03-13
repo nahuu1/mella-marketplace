@@ -1,13 +1,16 @@
 
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, Twitter, Youtube } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function Footer() {
+  const { t } = useLanguage();
+  
   return (
     <footer className="bg-secondary py-12 px-4 md:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          <div className="lg:col-span-1 space-y-4">
             <Link to="/" className="text-2xl font-bold tracking-tight">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
                 Mella
@@ -52,98 +55,52 @@ export function Footer() {
           </div>
           
           <div>
-            <h3 className="font-semibold text-lg mb-4">Categories</h3>
+            <h3 className="font-semibold text-lg mb-4">{t("categories")}</h3>
             <ul className="space-y-2">
               <li>
                 <Link to="/houses" className="text-muted-foreground hover:text-primary transition-colors">
-                  Houses
+                  {t("houses")}
                 </Link>
               </li>
               <li>
                 <Link to="/cars" className="text-muted-foreground hover:text-primary transition-colors">
-                  Cars
+                  {t("cars")}
                 </Link>
               </li>
               <li>
                 <Link to="/services" className="text-muted-foreground hover:text-primary transition-colors">
-                  Services
+                  {t("services")}
                 </Link>
               </li>
               <li>
                 <Link to="/products" className="text-muted-foreground hover:text-primary transition-colors">
-                  Products
+                  {t("products")}
                 </Link>
               </li>
             </ul>
           </div>
           
-          <div>
-            <h3 className="font-semibold text-lg mb-4">Company</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors">
-                  Contact
-                </Link>
-              </li>
-              <li>
-                <Link to="/careers" className="text-muted-foreground hover:text-primary transition-colors">
-                  Careers
-                </Link>
-              </li>
-              <li>
-                <Link to="/press" className="text-muted-foreground hover:text-primary transition-colors">
-                  Press
-                </Link>
-              </li>
-            </ul>
-          </div>
-          
-          <div>
-            <h3 className="font-semibold text-lg mb-4">Support</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link to="/help" className="text-muted-foreground hover:text-primary transition-colors">
-                  Help Center
-                </Link>
-              </li>
-              <li>
-                <Link to="/safety" className="text-muted-foreground hover:text-primary transition-colors">
-                  Safety Center
-                </Link>
-              </li>
-              <li>
-                <Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors">
-                  Privacy Policy
-                </Link>
-              </li>
-            </ul>
+          <div className="flex items-center justify-center md:justify-end">
+            <p className="text-muted-foreground text-center md:text-right font-medium">
+              {t("madeBy")}
+            </p>
           </div>
         </div>
         
         <div className="border-t border-border mt-10 pt-6 flex flex-col md:flex-row justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Mella. All rights reserved.
+            © {new Date().getFullYear()} Mella. {t("allRightsReserved")}
           </p>
           
           <div className="flex space-x-6 mt-4 md:mt-0">
             <Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Terms
+              {t("terms")}
             </Link>
             <Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Privacy
+              {t("privacy")}
             </Link>
             <Link to="/cookies" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Cookies
+              {t("cookies")}
             </Link>
           </div>
         </div>
