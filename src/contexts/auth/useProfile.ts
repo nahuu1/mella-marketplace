@@ -6,17 +6,18 @@ import { toast } from 'sonner';
 
 export const useProfile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchProfile = useCallback(async (userId: string) => {
     if (!userId) {
       console.log('No user ID provided to fetchProfile');
-      setIsLoading(false);
       return null;
     }
     
     try {
       setIsLoading(true);
+      setError(null);
       console.log('Fetching profile for user:', userId);
       
       const { data, error } = await supabase
@@ -27,18 +28,19 @@ export const useProfile = () => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        setIsLoading(false);
+        setError(error);
         return null;
       }
 
       console.log('Profile data loaded:', data);
       setProfile(data);
-      setIsLoading(false);
       return data;
     } catch (error) {
       console.error('Error in fetchProfile:', error);
-      setIsLoading(false);
+      setError(error instanceof Error ? error : new Error(String(error)));
       return null;
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -47,6 +49,9 @@ export const useProfile = () => {
       if (!updates.id) {
         throw new Error('Profile ID not found');
       }
+
+      setIsLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from('profiles')
@@ -57,6 +62,7 @@ export const useProfile = () => {
 
       if (error) {
         toast.error('Failed to update profile');
+        setError(error);
         throw error;
       }
 
@@ -65,7 +71,10 @@ export const useProfile = () => {
       return data;
     } catch (error) {
       console.error('Error updating profile:', error);
+      setError(error instanceof Error ? error : new Error(String(error)));
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -74,6 +83,9 @@ export const useProfile = () => {
       if (!userId) {
         throw new Error('User ID not found');
       }
+
+      setIsLoading(true);
+      setError(null);
 
       const fileExt = file.name.split('.').pop();
       const filePath = `${userId}/avatar.${fileExt}`;
@@ -84,6 +96,7 @@ export const useProfile = () => {
 
       if (uploadError) {
         toast.error('Failed to upload avatar');
+        setError(uploadError);
         throw uploadError;
       }
 
@@ -103,6 +116,7 @@ export const useProfile = () => {
         
       if (error) {
         console.error('Error updating profile with avatar:', error);
+        setError(error);
       } else {
         setProfile(data);
       }
@@ -111,20 +125,26 @@ export const useProfile = () => {
       return avatarUrl;
     } catch (error) {
       console.error('Error uploading avatar:', error);
+      setError(error instanceof Error ? error : new Error(String(error)));
       return null;
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   const updateGeoLocation = useCallback(async (userId: string) => {
     try {
       if (!userId) return;
+      
+      setIsLoading(true);
+      setError(null);
 
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             const { latitude, longitude } = position.coords;
             
-            // Instead of using geo_location, update location as a string
+            // Update location as a string
             const locationString = `${latitude}, ${longitude}`;
             
             const { data, error } = await supabase
@@ -138,32 +158,41 @@ export const useProfile = () => {
 
             if (error) {
               console.error('Error updating location:', error);
+              setError(error);
             } else {
               // Update local state with the new location
               setProfile(data);
               console.log('Location updated successfully');
             }
+            
+            setIsLoading(false);
           },
           (error) => {
             console.error('Error getting geo location:', error);
+            setError(error instanceof Error ? error : new Error(String(error)));
+            setIsLoading(false);
           }
         );
+      } else {
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Error in updateGeoLocation:', error);
+      setError(error instanceof Error ? error : new Error(String(error)));
+      setIsLoading(false);
     }
   }, []);
 
+  // Listen for auth state changes to fetch profile
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
+        console.log('Auth state changed in useProfile:', event, session?.user?.id);
         
         if (event === 'SIGNED_IN' && session?.user?.id) {
           await fetchProfile(session.user.id);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
-          setIsLoading(false);
         } else if (event === 'USER_UPDATED' && session?.user?.id) {
           await fetchProfile(session.user.id);
         }
@@ -178,6 +207,7 @@ export const useProfile = () => {
   return {
     profile,
     isLoading,
+    error,
     fetchProfile,
     updateProfile,
     uploadAvatar,

@@ -7,6 +7,7 @@ import { MapPin, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ListingForm } from "./ListingForm";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Listing {
   id: string;
@@ -23,13 +24,16 @@ interface Listing {
 export const ListingsTab = () => {
   const { currentUser } = useAuth();
   const [myListings, setMyListings] = useState<Listing[]>([]);
-  const [fetchingListings, setFetchingListings] = useState(false);
+  const [fetchingListings, setFetchingListings] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   
   // Fetch user's listings
   const fetchListings = async () => {
     if (!currentUser) return;
     
     setFetchingListings(true);
+    setError(null);
+    
     try {
       console.log("Fetching listings for user:", currentUser.id);
       const { data, error } = await supabase
@@ -39,6 +43,7 @@ export const ListingsTab = () => {
       
       if (error) {
         console.error("Error fetching listings:", error);
+        setError(error);
         throw error;
       }
       
@@ -47,6 +52,7 @@ export const ListingsTab = () => {
     } catch (error) {
       console.error("Error fetching listings:", error);
       toast.error("Failed to load your listings");
+      setError(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setFetchingListings(false);
     }
@@ -96,6 +102,23 @@ export const ListingsTab = () => {
     }
   };
   
+  // Show error if there's a problem fetching listings
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center py-12">
+            <h3 className="text-lg font-medium text-destructive mb-2">Error loading listings</h3>
+            <p className="text-muted-foreground mb-6">
+              {error.message || "Something went wrong when loading your listings."}
+            </p>
+            <Button onClick={fetchListings}>Try Again</Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   return (
     <Card>
       <CardContent className="p-6">
@@ -105,11 +128,17 @@ export const ListingsTab = () => {
         </div>
         
         {fetchingListings ? (
-          <div className="text-center py-12">
-            <div className="flex justify-center mb-4">
-              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-            </div>
-            <p>Loading your listings...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="overflow-hidden">
+                <Skeleton className="h-48 w-full" />
+                <CardContent className="p-4">
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2 mb-2" />
+                  <Skeleton className="h-4 w-1/4" />
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : myListings.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

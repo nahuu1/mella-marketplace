@@ -23,7 +23,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { currentUser, session, isLoading, setIsLoading } = useAuthState();
+  const { currentUser, session, isLoading, authInitialized } = useAuthState();
   const { 
     profile, 
     isLoading: profileLoading,
@@ -35,18 +35,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   // Fetch profile when user changes
   useEffect(() => {
-    if (currentUser?.id && !profileLoading) {
+    if (currentUser?.id && !profileLoading && authInitialized) {
       console.log("Fetching profile for current user:", currentUser.id);
       fetchProfile(currentUser.id);
     }
-  }, [currentUser?.id, fetchProfile, profileLoading]);
+  }, [currentUser?.id, fetchProfile, profileLoading, authInitialized]);
   
   // Update geo location whenever the user logs in
   useEffect(() => {
-    if (currentUser?.id && !isLoading) {
+    if (currentUser?.id && !isLoading && authInitialized) {
       updateGeo(currentUser.id);
     }
-  }, [currentUser?.id, isLoading, updateGeo]);
+  }, [currentUser?.id, isLoading, updateGeo, authInitialized]);
   
   const updateGeoLocation = async () => {
     if (currentUser?.id) {

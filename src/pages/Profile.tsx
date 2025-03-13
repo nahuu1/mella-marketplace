@@ -9,6 +9,7 @@ import { ProfileSidebar } from "@/components/profile/ProfileSidebar";
 import { ProfileSettings } from "@/components/profile/ProfileSettings";
 import { ListingsTab } from "@/components/profile/ListingsTab";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -21,21 +22,19 @@ const Profile = () => {
       const lastSessionDevice = localStorage.getItem('sessionDevice');
       const currentDevice = navigator.userAgent;
       
-      // Generate a unique session ID for this browser instance
-      const sessionId = Math.random().toString(36).substring(2, 15);
-      
       // If there's no stored session or it's a different device/browser, log out
       if (!lastSessionDevice || lastSessionDevice !== currentDevice) {
         console.log("New device or session detected, logging out");
+        
+        // Store current device info
         localStorage.setItem('sessionDevice', currentDevice);
-        localStorage.setItem('sessionId', sessionId);
+        localStorage.setItem('sessionId', Math.random().toString(36).substring(2, 15));
         
         if (currentUser) {
           try {
             await logout();
             toast.info("Please login again for security reasons");
             navigate("/auth");
-            return;
           } catch (error) {
             console.error("Error during auto-logout:", error);
           }
@@ -46,22 +45,22 @@ const Profile = () => {
     checkSession();
   }, [currentUser, logout, navigate]);
   
+  // Redirect if not logged in after loading completes
   useEffect(() => {
-    // Redirect if not logged in after loading completes
     if (!isLoading && !currentUser) {
       toast.error("Please sign in to view your profile");
       navigate("/auth");
     }
   }, [currentUser, isLoading, navigate]);
-  
+
+  // Show loading state while authentication is being checked
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <SiteHeader />
         <main className="flex-1 px-4 py-24">
-          <div className="max-w-4xl mx-auto flex items-center justify-center py-12">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mr-3"></div>
-            <p>Loading profile...</p>
+          <div className="max-w-4xl mx-auto">
+            <LoadingProfileSkeleton />
           </div>
         </main>
         <Footer />
@@ -69,8 +68,9 @@ const Profile = () => {
     );
   }
 
+  // Redirect will handle this case in useEffect
   if (!currentUser) {
-    return null; // Will redirect in useEffect, no need to render anything
+    return null;
   }
   
   return (
@@ -107,6 +107,29 @@ const Profile = () => {
         </div>
       </main>
       <Footer />
+    </div>
+  );
+};
+
+// Loading skeleton component for better UX during loading
+const LoadingProfileSkeleton = () => {
+  return (
+    <div className="flex flex-col md:flex-row gap-6 items-start">
+      <div className="w-full md:w-1/3 bg-card rounded-lg shadow-sm p-6">
+        <div className="flex flex-col items-center">
+          <Skeleton className="h-24 w-24 rounded-full mb-4" />
+          <Skeleton className="h-6 w-32 mb-2" />
+          <Skeleton className="h-4 w-48 mb-4" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+      
+      <div className="flex-1 w-full md:w-2/3">
+        <Skeleton className="h-10 w-full mb-8" />
+        <div className="space-y-4">
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
     </div>
   );
 };

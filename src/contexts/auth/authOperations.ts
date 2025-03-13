@@ -64,9 +64,9 @@ export const authOperations = {
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
           
-        if (profileError && !profileData) {
+        if (profileError || !profileData) {
           // If profile doesn't exist, create it manually
           const { error: insertError } = await supabase
             .from('profiles')
