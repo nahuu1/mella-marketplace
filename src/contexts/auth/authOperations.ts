@@ -47,12 +47,35 @@ export const authOperations = {
       if (error) throw error;
       
       if (data.user) {
+        // After signup, immediately sign in
         const { error: loginError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         
         if (loginError) throw loginError;
+
+        // Initialize profile if not created via trigger
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (profileError && !profileData) {
+          // If profile doesn't exist, create it manually
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              full_name: name,
+              email: email
+            });
+            
+          if (insertError) {
+            console.error("Error creating profile:", insertError);
+          }
+        }
         
         toast.success("Account created and logged in successfully!");
       } else {

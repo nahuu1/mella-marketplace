@@ -9,8 +9,16 @@ export const useProfile = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = useCallback(async (userId: string) => {
+    if (!userId) {
+      console.log('No user ID provided to fetchProfile');
+      setIsLoading(false);
+      return null;
+    }
+    
     try {
       setIsLoading(true);
+      console.log('Fetching profile for user:', userId);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -22,6 +30,7 @@ export const useProfile = () => {
         return null;
       }
 
+      console.log('Profile data loaded:', data);
       setProfile(data);
       return data;
     } catch (error) {
@@ -34,14 +43,14 @@ export const useProfile = () => {
 
   const updateProfile = useCallback(async (updates: Partial<Profile>) => {
     try {
-      if (!profile?.id) {
+      if (!updates.id) {
         throw new Error('Profile ID not found');
       }
 
       const { data, error } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('id', profile.id)
+        .eq('id', updates.id)
         .select('*')
         .single();
 
@@ -57,7 +66,7 @@ export const useProfile = () => {
       console.error('Error updating profile:', error);
       throw error;
     }
-  }, [profile?.id]);
+  }, []);
 
   const uploadAvatar = useCallback(async (file: File, userId: string) => {
     try {
@@ -84,9 +93,18 @@ export const useProfile = () => {
       const avatarUrl = urlData.publicUrl;
 
       // Update the profile with the new avatar URL
-      await updateProfile({ 
-        avatar_url: avatarUrl 
-      });
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', userId)
+        .select('*')
+        .single();
+        
+      if (error) {
+        console.error('Error updating profile with avatar:', error);
+      } else {
+        setProfile(data);
+      }
 
       toast.success('Avatar updated successfully');
       return avatarUrl;
@@ -94,7 +112,7 @@ export const useProfile = () => {
       console.error('Error uploading avatar:', error);
       return null;
     }
-  }, [updateProfile]);
+  }, []);
 
   const updateGeoLocation = useCallback(async (userId: string) => {
     try {
@@ -105,20 +123,20 @@ export const useProfile = () => {
           async (position) => {
             const { latitude, longitude } = position.coords;
             
-            const { error } = await supabase
+            const { data, error } = await supabase
               .from('profiles')
               .update({
                 geo_location: { latitude, longitude }
               })
-              .eq('id', userId);
+              .eq('id', userId)
+              .select('*')
+              .single();
 
             if (error) {
               console.error('Error updating geo location:', error);
             } else {
               // Update local state with the new geo location
-              setProfile(prev => 
-                prev ? { ...prev, geo_location: { latitude, longitude } } : null
-              );
+              setProfile(data);
               console.log('Geo location updated successfully');
             }
           },
@@ -134,11 +152,15 @@ export const useProfile = () => {
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        
         if (event === 'SIGNED_IN' && session?.user?.id) {
-          fetchProfile(session.user.id);
+          await fetchProfile(session.user.id);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
+        } else if (event === 'USER_UPDATED' && session?.user?.id) {
+          await fetchProfile(session.user.id);
         }
       }
     );

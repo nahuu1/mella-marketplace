@@ -99,6 +99,11 @@ export const ListingsTab = () => {
   return (
     <Card>
       <CardContent className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">Your Listings</h2>
+          <ListingForm onSuccess={fetchListings} />
+        </div>
+        
         {fetchingListings ? (
           <div className="text-center py-12">
             <div className="flex justify-center mb-4">
@@ -157,9 +162,6 @@ export const ListingsTab = () => {
             <p className="text-muted-foreground mb-6">
               You haven't posted any listings yet. Create your first listing now!
             </p>
-            <div className="flex flex-wrap gap-3 justify-center">
-              <ListingForm onSuccess={fetchListings} />
-            </div>
           </div>
         )}
       </CardContent>

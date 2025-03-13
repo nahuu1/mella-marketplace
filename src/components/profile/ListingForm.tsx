@@ -14,7 +14,7 @@ import { toast } from "sonner";
 export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { currentUser, profile } = useAuth();
   const [showAddListingDialog, setShowAddListingDialog] = useState(false);
-  const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state for new listing
   const [newListing, setNewListing] = useState({
@@ -33,7 +33,6 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   // Get user's location from profile when component mounts
   useEffect(() => {
     if (profile) {
-      setUserLocation(profile.location || null);
       if (profile.location) {
         setNewListing(prev => ({
           ...prev,
@@ -96,6 +95,8 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       return;
     }
     
+    setIsSubmitting(true);
+    
     try {
       // Upload images first
       const imageUrls = await uploadListingImages();
@@ -105,7 +106,11 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       if (navigator.geolocation) {
         try {
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject);
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
+            });
           });
           
           geoLocation = {
@@ -156,6 +161,8 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     } catch (error) {
       console.error("Error creating listing:", error);
       toast.error("Failed to create listing");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -185,6 +192,7 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 <SelectItem value="house">House</SelectItem>
                 <SelectItem value="product">Product</SelectItem>
                 <SelectItem value="service">Service</SelectItem>
+                <SelectItem value="car">Car</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -299,10 +307,19 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setShowAddListingDialog(false)}>
+          <Button variant="outline" onClick={() => setShowAddListingDialog(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleCreateListing}>Create Listing</Button>
+          <Button onClick={handleCreateListing} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                Creating...
+              </>
+            ) : (
+              "Create Listing"
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
