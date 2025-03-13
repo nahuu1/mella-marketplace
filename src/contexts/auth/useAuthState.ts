@@ -34,12 +34,8 @@ export const useAuthState = () => {
         
         setSession(session);
         setCurrentUser(session?.user || null);
-        
-        // Finalize loading state after a short delay to allow other components to initialize
-        setTimeout(() => {
-          setIsLoading(false);
-          setAuthInitialized(true);
-        }, 500);
+        setIsLoading(false);
+        setAuthInitialized(true);
       } catch (err) {
         console.error("Auth initialization error:", err);
         setIsLoading(false);

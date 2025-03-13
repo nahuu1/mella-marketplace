@@ -27,17 +27,18 @@ export const useProfile = () => {
 
       if (error) {
         console.error('Error fetching profile:', error);
+        setIsLoading(false);
         return null;
       }
 
       console.log('Profile data loaded:', data);
       setProfile(data);
+      setIsLoading(false);
       return data;
     } catch (error) {
       console.error('Error in fetchProfile:', error);
-      return null;
-    } finally {
       setIsLoading(false);
+      return null;
     }
   }, []);
 
@@ -123,21 +124,24 @@ export const useProfile = () => {
           async (position) => {
             const { latitude, longitude } = position.coords;
             
+            // Instead of using geo_location, update location as a string
+            const locationString = `${latitude}, ${longitude}`;
+            
             const { data, error } = await supabase
               .from('profiles')
               .update({
-                geo_location: { latitude, longitude }
+                location: locationString
               })
               .eq('id', userId)
               .select('*')
               .single();
 
             if (error) {
-              console.error('Error updating geo location:', error);
+              console.error('Error updating location:', error);
             } else {
-              // Update local state with the new geo location
+              // Update local state with the new location
               setProfile(data);
-              console.log('Geo location updated successfully');
+              console.log('Location updated successfully');
             }
           },
           (error) => {
@@ -159,6 +163,7 @@ export const useProfile = () => {
           await fetchProfile(session.user.id);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
+          setIsLoading(false);
         } else if (event === 'USER_UPDATED' && session?.user?.id) {
           await fetchProfile(session.user.id);
         }

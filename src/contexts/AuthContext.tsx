@@ -23,20 +23,30 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { currentUser, session, isLoading } = useAuthState();
+  const { currentUser, session, isLoading, setIsLoading } = useAuthState();
   const { 
     profile, 
+    isLoading: profileLoading,
     updateProfile, 
     uploadAvatar, 
-    updateGeoLocation: updateGeo 
+    updateGeoLocation: updateGeo,
+    fetchProfile
   } = useProfile();
+  
+  // Fetch profile when user changes
+  useEffect(() => {
+    if (currentUser?.id && !profileLoading) {
+      console.log("Fetching profile for current user:", currentUser.id);
+      fetchProfile(currentUser.id);
+    }
+  }, [currentUser?.id, fetchProfile, profileLoading]);
   
   // Update geo location whenever the user logs in
   useEffect(() => {
     if (currentUser?.id && !isLoading) {
       updateGeo(currentUser.id);
     }
-  }, [currentUser?.id, isLoading]);
+  }, [currentUser?.id, isLoading, updateGeo]);
   
   const updateGeoLocation = async () => {
     if (currentUser?.id) {
@@ -44,14 +54,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
+  // Enhanced logout function that clears device session
+  const enhancedLogout = async () => {
+    try {
+      await authOperations.logout();
+      // Clear session storage on logout
+      localStorage.removeItem('sessionDevice');
+      localStorage.removeItem('sessionId');
+    } catch (error) {
+      console.error("Enhanced logout error:", error);
+      throw error;
+    }
+  };
+  
   const value = {
     currentUser,
     profile,
     session,
-    isLoading,
+    isLoading: isLoading || profileLoading,
     login: authOperations.login,
     signup: authOperations.signup,
-    logout: authOperations.logout,
+    logout: enhancedLogout,
     updateProfile,
     uploadAvatar: (file: File) => uploadAvatar(file, currentUser?.id || ''),
     updateGeoLocation,

@@ -12,8 +12,39 @@ import { toast } from "sonner";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { currentUser, profile, isLoading } = useAuth();
+  const { currentUser, profile, isLoading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("listings");
+  
+  // Check if this is a new session/device and log out if needed
+  useEffect(() => {
+    const checkSession = async () => {
+      const lastSessionDevice = localStorage.getItem('sessionDevice');
+      const currentDevice = navigator.userAgent;
+      
+      // Generate a unique session ID for this browser instance
+      const sessionId = Math.random().toString(36).substring(2, 15);
+      
+      // If there's no stored session or it's a different device/browser, log out
+      if (!lastSessionDevice || lastSessionDevice !== currentDevice) {
+        console.log("New device or session detected, logging out");
+        localStorage.setItem('sessionDevice', currentDevice);
+        localStorage.setItem('sessionId', sessionId);
+        
+        if (currentUser) {
+          try {
+            await logout();
+            toast.info("Please login again for security reasons");
+            navigate("/auth");
+            return;
+          } catch (error) {
+            console.error("Error during auto-logout:", error);
+          }
+        }
+      }
+    };
+    
+    checkSession();
+  }, [currentUser, logout, navigate]);
   
   useEffect(() => {
     // Redirect if not logged in after loading completes

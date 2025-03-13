@@ -13,6 +13,10 @@ export const authOperations = {
 
       if (error) throw error;
       
+      // Store device information for session tracking
+      localStorage.setItem('sessionDevice', navigator.userAgent);
+      localStorage.setItem('sessionId', Math.random().toString(36).substring(2, 15));
+      
       toast.success("Logged in successfully!");
     } catch (error: any) {
       console.error('Login error:', error);
@@ -77,6 +81,10 @@ export const authOperations = {
           }
         }
         
+        // Store device information for session tracking
+        localStorage.setItem('sessionDevice', navigator.userAgent);
+        localStorage.setItem('sessionId', Math.random().toString(36).substring(2, 15));
+        
         toast.success("Account created and logged in successfully!");
       } else {
         toast.success("Account created successfully!");
@@ -104,6 +112,10 @@ export const authOperations = {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
+      // Clear session storage on logout
+      localStorage.removeItem('sessionDevice');
+      localStorage.removeItem('sessionId');
       
       toast.success("Logged out successfully!");
     } catch (error) {
