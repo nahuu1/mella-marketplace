@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -141,7 +141,6 @@ export const ListingForm = ({ onSuccess, onCancel, isOpen, setIsOpen }: ListingF
           price_period: newListing.price_period || "month",
           location: newListing.location || profile?.location || "",
           images: imageUrls,
-          is_featured: true,  // Mark as featured so it appears on home page
         });
       
       if (error) throw error;
@@ -183,6 +182,9 @@ export const ListingForm = ({ onSuccess, onCancel, isOpen, setIsOpen }: ListingF
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New Listing</DialogTitle>
+          <DialogDescription>
+            Create a listing that will be visible to users in your area
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">

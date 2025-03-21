@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,6 +64,50 @@ export const ListingsTab = () => {
     if (currentUser) {
       fetchListings();
     }
+  }, [currentUser]);
+  
+  // Set up real-time subscription for new listings
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    // Create a Supabase channel for real-time updates
+    const channel = supabase
+      .channel('public:listings')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'listings',
+          filter: `user_id=eq.${currentUser.id}`
+        }, 
+        (payload) => {
+          console.log('Real-time update:', payload);
+          
+          // Handle different events
+          if (payload.eventType === 'INSERT') {
+            // Add the new listing to the state
+            setMyListings(prev => [...prev, payload.new as Listing]);
+          } else if (payload.eventType === 'UPDATE') {
+            // Update the listing in the state
+            setMyListings(prev => 
+              prev.map(listing => 
+                listing.id === payload.new.id ? payload.new as Listing : listing
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            // Remove the listing from the state
+            setMyListings(prev => 
+              prev.filter(listing => listing.id !== payload.old.id)
+            );
+          }
+        }
+      )
+      .subscribe();
+    
+    // Clean up the subscription
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [currentUser]);
   
   const handleDeleteListing = async (id: string) => {

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Search, PlusCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { EmergencyServices } from "@/components/site/emergency-services";
+import { NearbyListings } from "@/components/listings/NearbyListings";
 
 const Explore = () => {
   const { currentUser, profile } = useAuth();
@@ -48,6 +49,13 @@ const Explore = () => {
           {currentUser && (
             <section className="mb-12">
               <EmergencyServices />
+            </section>
+          )}
+
+          {/* Nearby listings section - only shows when user is logged in */}
+          {currentUser && (
+            <section className="mb-12">
+              <NearbyListings />
             </section>
           )}
 
