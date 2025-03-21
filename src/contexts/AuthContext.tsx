@@ -33,13 +33,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fetchProfile
   } = useProfile();
   
-  // Fetch profile when user changes
+  // Fetch profile when user changes and clear profile data on logout
   useEffect(() => {
-    if (currentUser?.id && !profileLoading && authInitialized) {
+    if (currentUser?.id && authInitialized) {
       console.log("Fetching profile for current user:", currentUser.id);
       fetchProfile(currentUser.id);
     }
-  }, [currentUser?.id, fetchProfile, profileLoading, authInitialized]);
+  }, [currentUser?.id, fetchProfile, authInitialized]);
   
   // Update geo location whenever the user logs in
   useEffect(() => {

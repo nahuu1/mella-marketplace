@@ -8,6 +8,7 @@ export const useProfile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [fetchCount, setFetchCount] = useState(0);
 
   const fetchProfile = useCallback(async (userId: string) => {
     if (!userId) {
@@ -15,9 +16,16 @@ export const useProfile = () => {
       return null;
     }
     
+    // Prevent excessive refetching
+    if (fetchCount > 0 && profile?.id === userId) {
+      console.log('Skipping profile fetch - already loading or loaded for this user');
+      return profile;
+    }
+    
     try {
       setIsLoading(true);
       setError(null);
+      setFetchCount(prev => prev + 1);
       console.log('Fetching profile for user:', userId);
       
       const { data, error } = await supabase
@@ -42,7 +50,7 @@ export const useProfile = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [profile, fetchCount]);
 
   const updateProfile = useCallback(async (updates: Partial<Profile>) => {
     try {
@@ -88,7 +96,8 @@ export const useProfile = () => {
       setError(null);
 
       const fileExt = file.name.split('.').pop();
-      const filePath = `${userId}/avatar.${fileExt}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('profile_pictures')
@@ -136,9 +145,6 @@ export const useProfile = () => {
     try {
       if (!userId) return;
       
-      setIsLoading(true);
-      setError(null);
-
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
@@ -164,37 +170,26 @@ export const useProfile = () => {
               setProfile(data);
               console.log('Location updated successfully');
             }
-            
-            setIsLoading(false);
           },
           (error) => {
             console.error('Error getting geo location:', error);
             setError(error instanceof Error ? error : new Error(String(error)));
-            setIsLoading(false);
           }
         );
-      } else {
-        setIsLoading(false);
       }
     } catch (error) {
       console.error('Error in updateGeoLocation:', error);
       setError(error instanceof Error ? error : new Error(String(error)));
-      setIsLoading(false);
     }
   }, []);
 
-  // Listen for auth state changes to fetch profile
+  // Clear auth state listener to prevent memory leaks
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed in useProfile:', event, session?.user?.id);
-        
-        if (event === 'SIGNED_IN' && session?.user?.id) {
-          await fetchProfile(session.user.id);
-        } else if (event === 'SIGNED_OUT') {
+      (event, session) => {
+        if (event === 'SIGNED_OUT') {
           setProfile(null);
-        } else if (event === 'USER_UPDATED' && session?.user?.id) {
-          await fetchProfile(session.user.id);
+          setFetchCount(0);
         }
       }
     );
@@ -202,7 +197,7 @@ export const useProfile = () => {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, []);
 
   return {
     profile,

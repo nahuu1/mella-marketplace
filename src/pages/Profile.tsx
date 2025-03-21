@@ -13,45 +13,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { currentUser, profile, isLoading, logout } = useAuth();
+  const { currentUser, profile, isLoading, authInitialized } = useAuth();
   const [activeTab, setActiveTab] = useState("listings");
   
-  // Check if this is a new session/device and log out if needed
   useEffect(() => {
-    const checkSession = async () => {
-      const lastSessionDevice = localStorage.getItem('sessionDevice');
-      const currentDevice = navigator.userAgent;
-      
-      // If there's no stored session or it's a different device/browser, log out
-      if (!lastSessionDevice || lastSessionDevice !== currentDevice) {
-        console.log("New device or session detected, logging out");
-        
-        // Store current device info
-        localStorage.setItem('sessionDevice', currentDevice);
-        localStorage.setItem('sessionId', Math.random().toString(36).substring(2, 15));
-        
-        if (currentUser) {
-          try {
-            await logout();
-            toast.info("Please login again for security reasons");
-            navigate("/auth");
-          } catch (error) {
-            console.error("Error during auto-logout:", error);
-          }
-        }
-      }
-    };
-    
-    checkSession();
-  }, [currentUser, logout, navigate]);
-  
-  // Redirect if not logged in after loading completes
-  useEffect(() => {
-    if (!isLoading && !currentUser) {
+    // Only redirect if authentication is initialized and user is not logged in
+    if (authInitialized && !isLoading && !currentUser) {
+      console.log("User not logged in, redirecting to auth page");
       toast.error("Please sign in to view your profile");
       navigate("/auth");
     }
-  }, [currentUser, isLoading, navigate]);
+  }, [currentUser, isLoading, navigate, authInitialized]);
 
   // Show loading state while authentication is being checked
   if (isLoading) {
@@ -68,7 +40,7 @@ const Profile = () => {
     );
   }
 
-  // Redirect will handle this case in useEffect
+  // Don't render anything during redirection
   if (!currentUser) {
     return null;
   }

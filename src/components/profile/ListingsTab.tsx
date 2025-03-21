@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { MapPin, Trash } from "lucide-react";
+import { MapPin, Trash, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ListingForm } from "./ListingForm";
@@ -26,10 +26,14 @@ export const ListingsTab = () => {
   const [myListings, setMyListings] = useState<Listing[]>([]);
   const [fetchingListings, setFetchingListings] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [showListingForm, setShowListingForm] = useState(false);
   
   // Fetch user's listings
   const fetchListings = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setFetchingListings(false);
+      return;
+    }
     
     setFetchingListings(true);
     setError(null);
@@ -51,7 +55,6 @@ export const ListingsTab = () => {
       setMyListings(data || []);
     } catch (error) {
       console.error("Error fetching listings:", error);
-      toast.error("Failed to load your listings");
       setError(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setFetchingListings(false);
@@ -61,27 +64,6 @@ export const ListingsTab = () => {
   useEffect(() => {
     if (currentUser) {
       fetchListings();
-      
-      // Set up realtime subscription for listings
-      const channel = supabase
-        .channel('listings-changes')
-        .on('postgres_changes', 
-          {
-            event: '*',
-            schema: 'public',
-            table: 'listings',
-            filter: `user_id=eq.${currentUser.id}`,
-          }, 
-          (payload) => {
-            console.log("Real-time update received:", payload);
-            fetchListings();
-          }
-        )
-        .subscribe();
-      
-      return () => {
-        supabase.removeChannel(channel);
-      };
     }
   }, [currentUser]);
   
@@ -95,18 +77,59 @@ export const ListingsTab = () => {
       if (error) throw error;
       
       toast.success("Listing deleted successfully!");
-      setMyListings(myListings.filter(listing => listing.id !== id));
+      setMyListings(prev => prev.filter(listing => listing.id !== id));
     } catch (error) {
       console.error("Error deleting listing:", error);
       toast.error("Failed to delete listing");
     }
   };
   
+  const handleListingSuccess = () => {
+    fetchListings();
+    setShowListingForm(false);
+  };
+  
+  // Show loading state when fetching listings
+  if (fetchingListings) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Your Listings</h2>
+            <Button onClick={() => setShowListingForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Listing
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="overflow-hidden">
+                <Skeleton className="h-48 w-full" />
+                <CardContent className="p-4">
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2 mb-2" />
+                  <Skeleton className="h-4 w-1/4" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   // Show error if there's a problem fetching listings
   if (error) {
     return (
       <Card>
         <CardContent className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Your Listings</h2>
+            <Button onClick={() => setShowListingForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Listing
+            </Button>
+          </div>
           <div className="text-center py-12">
             <h3 className="text-lg font-medium text-destructive mb-2">Error loading listings</h3>
             <p className="text-muted-foreground mb-6">
@@ -124,23 +147,13 @@ export const ListingsTab = () => {
       <CardContent className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Your Listings</h2>
-          <ListingForm onSuccess={fetchListings} />
+          <Button onClick={() => setShowListingForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Listing
+          </Button>
         </div>
         
-        {fetchingListings ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="overflow-hidden">
-                <Skeleton className="h-48 w-full" />
-                <CardContent className="p-4">
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2 mb-2" />
-                  <Skeleton className="h-4 w-1/4" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : myListings.length > 0 ? (
+        {myListings.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {myListings.map((listing) => (
               <Card key={listing.id} className="overflow-hidden">
@@ -192,6 +205,15 @@ export const ListingsTab = () => {
               You haven't posted any listings yet. Create your first listing now!
             </p>
           </div>
+        )}
+        
+        {showListingForm && (
+          <ListingForm 
+            onSuccess={handleListingSuccess} 
+            onCancel={() => setShowListingForm(false)}
+            isOpen={showListingForm}
+            setIsOpen={setShowListingForm}
+          />
         )}
       </CardContent>
     </Card>

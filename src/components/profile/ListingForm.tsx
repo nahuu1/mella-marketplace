@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,9 +11,15 @@ import { Plus, Trash } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
-export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
+interface ListingFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+}
+
+export const ListingForm = ({ onSuccess, onCancel, isOpen, setIsOpen }: ListingFormProps) => {
   const { currentUser, profile } = useAuth();
-  const [showAddListingDialog, setShowAddListingDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state for new listing
@@ -25,7 +31,7 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     price: 0,
     price_period: "month",
     location: "",
-    images: [],
+    images: [] as string[],
   });
   
   const [listingImages, setListingImages] = useState<File[]>([]);
@@ -127,7 +133,7 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
         .from('listings')
         .insert({
           user_id: currentUser.id,
-          title: newListing.title || "",
+          title: newListing.title,
           description: newListing.description || "",
           category: newListing.category || "house",
           subcategory: newListing.subcategory || "",
@@ -135,14 +141,15 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           price_period: newListing.price_period || "month",
           location: newListing.location || profile?.location || "",
           images: imageUrls,
-          geo_location: geoLocation,
           is_featured: true,  // Mark as featured so it appears on home page
         });
       
       if (error) throw error;
       
       toast.success("Listing created successfully!");
-      setShowAddListingDialog(false);
+      setIsOpen(false);
+      
+      // Reset form
       setNewListing({
         title: "",
         description: "",
@@ -166,14 +173,13 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     }
   };
   
+  const handleClose = () => {
+    setIsOpen(false);
+    if (onCancel) onCancel();
+  };
+  
   return (
-    <Dialog open={showAddListingDialog} onOpenChange={setShowAddListingDialog}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Listing
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New Listing</DialogTitle>
@@ -307,7 +313,7 @@ export const ListingForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setShowAddListingDialog(false)} disabled={isSubmitting}>
+          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button onClick={handleCreateListing} disabled={isSubmitting}>

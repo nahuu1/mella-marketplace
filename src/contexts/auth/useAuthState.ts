@@ -12,45 +12,50 @@ export const useAuthState = () => {
   useEffect(() => {
     console.log("Setting up auth state listener");
     
+    // Handle auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log("Auth state changed:", event, newSession?.user?.id);
-        setSession(newSession);
-        setCurrentUser(newSession?.user || null);
         
-        if (event === 'SIGNED_OUT') {
-          setIsLoading(false);
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setSession(newSession);
+          setCurrentUser(newSession?.user || null);
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setCurrentUser(null);
+          localStorage.removeItem('sessionDevice');
         }
       }
     );
 
+    // Initialize auth state
     const initializeAuth = async () => {
       try {
         console.log("Initializing auth...");
         setIsLoading(true);
+        
         const { data: { session } } = await supabase.auth.getSession();
-        console.log("Session retrieved:", session?.user?.id);
         
         // Check if this is a new session/device
         const lastSessionDevice = localStorage.getItem('sessionDevice');
         const currentDevice = navigator.userAgent;
         
-        if (!lastSessionDevice || lastSessionDevice !== currentDevice) {
+        if (session && (!lastSessionDevice || lastSessionDevice !== currentDevice)) {
           console.log("New device or session detected, logging out");
-          if (session) {
-            await supabase.auth.signOut();
-            setSession(null);
-            setCurrentUser(null);
-          }
-        } else {
+          await supabase.auth.signOut();
+          localStorage.removeItem('sessionDevice');
+          setSession(null);
+          setCurrentUser(null);
+        } else if (session) {
+          // Set the session device for existing sessions
+          localStorage.setItem('sessionDevice', currentDevice);
           setSession(session);
           setCurrentUser(session?.user || null);
         }
         
-        setIsLoading(false);
-        setAuthInitialized(true);
       } catch (err) {
         console.error("Auth initialization error:", err);
+      } finally {
         setIsLoading(false);
         setAuthInitialized(true);
       }

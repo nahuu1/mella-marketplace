@@ -6,15 +6,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Camera, LogOut, Mail, MapPin, Phone } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const ProfileSidebar = () => {
-  const { currentUser, profile, logout, uploadAvatar, updateGeoLocation } = useAuth();
+  const navigate = useNavigate();
+  const { currentUser, profile, logout, uploadAvatar, updateGeoLocation, isLoading } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   
   const handleLogout = async () => {
     try {
       await logout();
-      // Navigate is handled by the parent component
+      toast.success("Logged out successfully");
+      navigate("/auth");
     } catch (error) {
       console.error("Error logging out:", error);
       toast.error("Failed to log out");
@@ -46,6 +50,22 @@ export const ProfileSidebar = () => {
       toast.error("Failed to update location");
     }
   };
+
+  if (isLoading) {
+    return (
+      <Card className="w-full md:w-80 flex-shrink-0">
+        <CardHeader className="flex flex-col items-center pb-0 pt-6">
+          <Skeleton className="h-24 w-24 rounded-full mb-4" />
+          <Skeleton className="h-6 w-32 mb-2" />
+          <Skeleton className="h-4 w-48 mb-4" />
+        </CardHeader>
+        <CardContent className="pt-6">
+          <Skeleton className="h-10 w-full mb-2" />
+          <Skeleton className="h-10 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
   
   return (
     <Card className="w-full md:w-80 flex-shrink-0">
@@ -101,7 +121,7 @@ export const ProfileSidebar = () => {
         <Button 
           variant="outline" 
           size="sm" 
-          className="w-full mb-2"
+          className="w-full"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4 mr-2" />
