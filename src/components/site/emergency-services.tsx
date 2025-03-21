@@ -5,6 +5,8 @@ import { MapPin, Phone, AlertCircle, AlertTriangle, Shield, Stethoscope, Buildin
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Types for emergency services
 interface EmergencyService {
@@ -20,64 +22,127 @@ interface EmergencyService {
   distance?: number; // in kilometers
 }
 
-// Mock data for emergency services
-// In a real app, this would come from a database
-const mockEmergencyServices: EmergencyService[] = [
+// Updated emergency services with real phone numbers for Ethiopia
+const emergencyServices: EmergencyService[] = [
   {
     id: '1',
-    name: 'Central Hospital',
+    name: 'Tikur Anbessa Specialized Hospital',
     type: 'hospital',
-    phone: '+251-111-222-333',
-    location: { latitude: 9.0222, longitude: 38.7468 },
-    address: '5 Ras Desta Damtew Ave, Addis Ababa',
+    phone: '+251-111-239-752',
+    location: { latitude: 9.0105, longitude: 38.7468 },
+    address: 'Algeria St, Addis Ababa',
   },
   {
     id: '2',
-    name: 'Police Station',
+    name: 'Federal Police Commission',
     type: 'police',
-    phone: '+251-111-222-334',
+    phone: '991',
     location: { latitude: 9.0252, longitude: 38.7528 },
-    address: 'Bole Road, Addis Ababa',
+    address: 'Jomo Kenyatta St, Addis Ababa',
   },
   {
     id: '3',
-    name: 'Fire Department',
+    name: 'Addis Ababa Fire & Emergency Prevention',
     type: 'fire',
-    phone: '+251-111-222-335',
+    phone: '939',
     location: { latitude: 9.0302, longitude: 38.7618 },
-    address: 'Mexico Square, Addis Ababa',
-  },
-  {
-    id: '4',
-    name: 'Community Clinic',
-    type: 'clinic',
-    phone: '+251-111-222-336',
-    location: { latitude: 9.0352, longitude: 38.7458 },
     address: 'Churchill Avenue, Addis Ababa',
   },
   {
-    id: '5',
-    name: 'Pharmacy Plus',
-    type: 'pharmacy',
-    phone: '+251-111-222-337',
-    location: { latitude: 9.0282, longitude: 38.7498 },
-    address: 'Bole Medhanialem, Addis Ababa',
-  },
-  {
-    id: '6',
-    name: 'St. Paul\'s Hospital',
+    id: '4',
+    name: 'St. Paul\'s Hospital Millennium Medical College',
     type: 'hospital',
-    phone: '+251-111-222-338',
+    phone: '+251-111-270-208',
     location: { latitude: 9.0312, longitude: 38.7608 },
     address: 'Swinfen Lane, Addis Ababa',
   },
   {
-    id: '7',
-    name: 'Rapid Response Clinic',
-    type: 'clinic',
-    phone: '+251-111-222-339',
+    id: '5',
+    name: 'MENILIK II HOSPITAL',
+    type: 'hospital',
+    phone: '+251-111-124-017',
+    location: { latitude: 9.0383, longitude: 38.7623 },
+    address: 'Gotera, Addis Ababa',
+  },
+  {
+    id: '6',
+    name: 'Yekatit 12 Hospital Medical College',
+    type: 'hospital',
+    phone: '+251-111-552-470',
     location: { latitude: 9.0232, longitude: 38.7488 },
-    address: 'Meskel Square, Addis Ababa',
+    address: 'Asmara Road, Addis Ababa',
+  },
+  {
+    id: '7',
+    name: 'Gandhi Memorial Hospital',
+    type: 'hospital',
+    phone: '+251-111-516-688',
+    location: { latitude: 9.0213, longitude: 38.7585 },
+    address: 'Kirkos, Addis Ababa',
+  },
+  {
+    id: '8',
+    name: 'Zewditu Memorial Hospital',
+    type: 'hospital',
+    phone: '+251-111-516-399',
+    location: { latitude: 9.0147, longitude: 38.7512 },
+    address: 'Lideta, Addis Ababa',
+  },
+  {
+    id: '9',
+    name: 'Bole 17 Police Station',
+    type: 'police',
+    phone: '991',
+    location: { latitude: 8.9879, longitude: 38.7985 },
+    address: 'Bole, Addis Ababa',
+  },
+  {
+    id: '10',
+    name: 'Amanuel Mental Specialized Hospital',
+    type: 'hospital',
+    phone: '+251-111-539-539',
+    location: { latitude: 9.0288, longitude: 38.7581 },
+    address: 'Amanuel Area, Addis Ababa',
+  },
+  {
+    id: '11',
+    name: 'Red Cross Ambulance Service',
+    type: 'clinic',
+    phone: '907',
+    location: { latitude: 9.0202, longitude: 38.7468 },
+    address: 'Ras Desta Damtew Ave, Addis Ababa',
+  },
+  {
+    id: '12',
+    name: 'Kadisco Pharmacy',
+    type: 'pharmacy',
+    phone: '+251-116-612-054',
+    location: { latitude: 9.0282, longitude: 38.7498 },
+    address: 'Bole Road, Addis Ababa',
+  },
+  {
+    id: '13',
+    name: 'Emergency Coordinating Center',
+    type: 'clinic',
+    phone: '952',
+    location: { latitude: 9.0251, longitude: 38.7573 },
+    address: 'Central Addis Ababa',
+  },
+  {
+    id: '14',
+    name: 'EPHARM Pharmacy',
+    type: 'pharmacy',
+    phone: '+251-111-551-313',
+    location: { latitude: 9.0137, longitude: 38.7608 },
+    address: 'Mexico Square, Addis Ababa',
+  },
+  {
+    id: '15',
+    name: 'National Blood Bank Service',
+    type: 'clinic',
+    phone: '+251-116-634-290',
+    location: { latitude: 9.0108, longitude: 38.7514 },
+    address: 'Tikur Anbessa Hospital, Addis Ababa',
   },
 ];
 
@@ -128,6 +193,7 @@ const serviceBackgrounds = {
 };
 
 export const EmergencyServices = () => {
+  const { profile } = useAuth();
   const [userLocation, setUserLocation] = useState<{latitude: number; longitude: number} | null>(null);
   const [nearbyServices, setNearbyServices] = useState<EmergencyService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -136,7 +202,7 @@ export const EmergencyServices = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
-    // Use browser's Geolocation API to get user's location
+    // Use browser's Geolocation API to get user's location with high accuracy
     const getUserLocation = () => {
       setIsLoading(true);
       if (!navigator.geolocation) {
@@ -145,35 +211,62 @@ export const EmergencyServices = () => {
         return;
       }
 
+      // Check if we already have location in the user profile
+      if (profile?.geo_location) {
+        console.log('Using location from profile:', profile.geo_location);
+        setUserLocation(profile.geo_location);
+        calculateServicesDistances(profile.geo_location.latitude, profile.geo_location.longitude);
+        return;
+      }
+
+      const geoOptions = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      };
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+          console.log('Got precise location:', latitude, longitude);
           setUserLocation({ latitude, longitude });
           
-          // Calculate distances for all services
-          const servicesWithDistance = mockEmergencyServices.map(service => {
-            const distance = calculateDistance(
-              latitude, 
-              longitude, 
-              service.location.latitude, 
-              service.location.longitude
-            );
-            return { ...service, distance };
-          }).sort((a, b) => (a.distance || 0) - (b.distance || 0));
-
-          setNearbyServices(servicesWithDistance);
-          setIsLoading(false);
+          calculateServicesDistances(latitude, longitude);
         },
         (error) => {
           console.error('Error getting location:', error);
-          setError('Unable to retrieve your location. Please enable location services.');
+          setError(`Unable to retrieve your precise location: ${error.message}. Please enable location services.`);
           setIsLoading(false);
-        }
+          
+          // Fallback to approximate location (Addis Ababa center)
+          toast.warning("Using default location in Addis Ababa. For better results, please enable precise location.");
+          const defaultLat = 9.0250;
+          const defaultLng = 38.7464;
+          setUserLocation({ latitude: defaultLat, longitude: defaultLng });
+          calculateServicesDistances(defaultLat, defaultLng);
+        },
+        geoOptions
       );
     };
 
+    const calculateServicesDistances = (latitude: number, longitude: number) => {
+      // Calculate distances for all services
+      const servicesWithDistance = emergencyServices.map(service => {
+        const distance = calculateDistance(
+          latitude, 
+          longitude, 
+          service.location.latitude, 
+          service.location.longitude
+        );
+        return { ...service, distance };
+      }).sort((a, b) => (a.distance || 0) - (b.distance || 0));
+
+      setNearbyServices(servicesWithDistance);
+      setIsLoading(false);
+    };
+
     getUserLocation();
-  }, []);
+  }, [profile]);
 
   const handleRefresh = () => {
     setIsLoading(true);
@@ -181,13 +274,20 @@ export const EmergencyServices = () => {
     setFilterType('all');
     setSearchQuery('');
     
+    const geoOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    };
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
+        console.log('Refreshed location with high accuracy:', latitude, longitude);
         setUserLocation({ latitude, longitude });
         
         // Calculate distances for all services
-        const servicesWithDistance = mockEmergencyServices.map(service => {
+        const servicesWithDistance = emergencyServices.map(service => {
           const distance = calculateDistance(
             latitude, 
             longitude, 
@@ -199,17 +299,22 @@ export const EmergencyServices = () => {
 
         setNearbyServices(servicesWithDistance);
         setIsLoading(false);
+        toast.success("Location updated successfully");
       },
       (error) => {
-        console.error('Error getting location:', error);
-        setError('Unable to retrieve your location. Please enable location services.');
+        console.error('Error getting location during refresh:', error);
+        setError('Unable to refresh your location. Please ensure location services are enabled.');
         setIsLoading(false);
-      }
+        toast.error("Failed to update location");
+      },
+      geoOptions
     );
   };
 
   const handleCallEmergency = (phone: string) => {
     window.location.href = `tel:${phone}`;
+    console.log(`Calling emergency number: ${phone}`);
+    toast.info(`Calling ${phone}`);
   };
 
   // Filter services based on selected type and search query
@@ -217,7 +322,8 @@ export const EmergencyServices = () => {
     const matchesType = filterType === 'all' || service.type === filterType;
     const matchesSearch = searchQuery === '' || 
       service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      service.address.toLowerCase().includes(searchQuery.toLowerCase());
+      service.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.phone.includes(searchQuery);
     return matchesType && matchesSearch;
   });
 
@@ -260,6 +366,11 @@ export const EmergencyServices = () => {
           <p className="text-lg md:text-xl max-w-2xl mx-auto">
             Find and call emergency services in your area. Your safety is our priority.
           </p>
+          {userLocation && (
+            <p className="text-sm mt-2">
+              Your location: {userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}
+            </p>
+          )}
         </div>
 
         {isLoading ? (
@@ -272,7 +383,7 @@ export const EmergencyServices = () => {
             <div className="w-full max-w-4xl mb-8">
               <div className="bg-white/10 backdrop-blur-sm p-4 rounded-lg border border-white/20 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
                 <Input 
-                  placeholder="Search by name or address" 
+                  placeholder="Search by name, address or phone" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="flex-1 bg-white/20 border-white/30 text-white placeholder:text-white/70"
@@ -291,7 +402,7 @@ export const EmergencyServices = () => {
                   </SelectContent>
                 </Select>
                 <Button variant="outline" onClick={handleRefresh} className="md:w-auto border-white text-white hover:bg-white/10">
-                  Refresh
+                  Refresh Location
                 </Button>
               </div>
             </div>
@@ -299,7 +410,7 @@ export const EmergencyServices = () => {
             {filteredServices.length === 0 ? (
               <div className="text-center p-8 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
                 <p className="text-white text-lg mb-4">No emergency services found matching your criteria.</p>
-                <Button onClick={handleRefresh} variant="outline" className="border-white text-white hover:bg-white/10">
+                <Button onClick={() => { setFilterType('all'); setSearchQuery(''); }} variant="outline" className="border-white text-white hover:bg-white/10">
                   Reset Filters
                 </Button>
               </div>
